@@ -339,11 +339,29 @@ function callGeminiAPI(apiUrl, prompt) {
   
   const response = UrlFetchApp.fetch(apiUrl, options);
   const responseCode = response.getResponseCode();
+  const rawResponseText = response.getContentText();
+  
+  // Enhanced logging: Log complete raw response for debugging
+  logStructuredEvent('DEBUG', 'gemini_raw_response', null, 'Complete Gemini API response received', {
+    response_code: responseCode,
+    response_length: rawResponseText.length,
+    raw_response_full: rawResponseText,
+    response_preview: rawResponseText.substring(0, 300)
+  });
   
   if (responseCode === 200) {
-    const data = JSON.parse(response.getContentText());
+    const data = JSON.parse(rawResponseText);
     if (data.candidates && data.candidates[0] && data.candidates[0].content) {
-      return data.candidates[0].content.parts[0].text;
+      const extractedText = data.candidates[0].content.parts[0].text;
+      
+      // Enhanced logging: Log extracted text for comparison
+      logStructuredEvent('DEBUG', 'gemini_text_extracted', null, 'Text extracted from Gemini response', {
+        extracted_length: extractedText.length,
+        extracted_text_full: extractedText,
+        extraction_successful: true
+      });
+      
+      return extractedText;
     } else {
       throw new Error('Invalid response structure from Gemini API');
     }
@@ -352,7 +370,7 @@ function callGeminiAPI(apiUrl, prompt) {
   } else if (responseCode === 403) {
     throw new Error('API access forbidden - check API key');
   } else {
-    throw new Error(`API Error: ${responseCode} - ${response.getContentText()}`);
+    throw new Error(`API Error: ${responseCode} - ${rawResponseText}`);
   }
 }
 
@@ -487,11 +505,22 @@ Return only JSON with these fields: cipher_type, p1_answer, p1_encrypted_word, p
 function extractAndValidatePuzzle(response, dateStr) {
   let puzzleData = null;
   
+  // Enhanced logging: Log incoming response for analysis
+  logStructuredEvent('DEBUG', 'puzzle_extraction_start', dateStr, 'Starting puzzle extraction from response', {
+    response_length: response.length,
+    response_full: response,
+    contains_blockchain: response.toUpperCase().includes('BLOCKCHAIN'),
+    contains_blockch: response.toUpperCase().includes('BLOCKCH'),
+    word_analysis: extractWordBoundaries(response)
+  });
+  
   // Strategy 1: Direct JSON parse
   try {
     puzzleData = JSON.parse(response);
     logStructuredEvent('INFO', 'json_extraction_success', dateStr, 'Direct JSON parse successful', {
-      strategy: 'direct_parse'
+      strategy: 'direct_parse',
+      extracted_p1_answer: puzzleData?.p1_answer,
+      p1_answer_length: puzzleData?.p1_answer?.length
     });
   } catch (error) {
     // Strategy 2: Extract from code blocks
@@ -500,7 +529,10 @@ function extractAndValidatePuzzle(response, dateStr) {
       if (jsonMatch) {
         puzzleData = JSON.parse(jsonMatch[1]);
         logStructuredEvent('INFO', 'json_extraction_success', dateStr, 'Code block extraction successful', {
-          strategy: 'code_block_extraction'
+          strategy: 'code_block_extraction',
+          extracted_p1_answer: puzzleData?.p1_answer,
+          p1_answer_length: puzzleData?.p1_answer?.length,
+          extracted_json_length: jsonMatch[1].length
         });
       }
     } catch (error2) {
@@ -512,7 +544,12 @@ function extractAndValidatePuzzle(response, dateStr) {
           const jsonString = response.substring(startIndex, endIndex + 1);
           puzzleData = JSON.parse(jsonString);
           logStructuredEvent('INFO', 'json_extraction_success', dateStr, 'Boundary extraction successful', {
-            strategy: 'boundary_extraction'
+            strategy: 'boundary_extraction',
+            extracted_p1_answer: puzzleData?.p1_answer,
+            p1_answer_length: puzzleData?.p1_answer?.length,
+            boundary_start: startIndex,
+            boundary_end: endIndex,
+            extracted_length: endIndex - startIndex + 1
           });
         }
       } catch (error3) {
@@ -530,14 +567,27 @@ function extractAndValidatePuzzle(response, dateStr) {
             repairedJson = repairedJson.substring(startIndex, endIndex + 1);
             puzzleData = JSON.parse(repairedJson);
             logStructuredEvent('INFO', 'json_extraction_success', dateStr, 'JSON repair successful', {
-              strategy: 'json_repair'
+              strategy: 'json_repair',
+              extracted_p1_answer: puzzleData?.p1_answer,
+              p1_answer_length: puzzleData?.p1_answer?.length,
+              repair_start: startIndex,
+              repair_end: endIndex,
+              repaired_json_length: repairedJson.length
             });
           }
         } catch (error4) {
           logStructuredEvent('ERROR', 'json_extraction_failed', dateStr, 'All JSON extraction strategies failed', {
             response_length: response.length,
-            response_preview: response.substring(0, 200),
-            errors: [error.message, error2.message, error3.message, error4.message]
+            response_full: response,
+            response_preview: response.substring(0, 300),
+            errors: [error.message, error2.message, error3.message, error4.message],
+            char_analysis: {
+              first_brace_index: response.indexOf('{'),
+              last_brace_index: response.lastIndexOf('}'),
+              contains_blockchain: response.toUpperCase().includes('BLOCKCHAIN'),
+              contains_blockch: response.toUpperCase().includes('BLOCKCH'),
+              word_boundary_analysis: extractWordBoundaries(response)
+            }
           });
           return null;
         }
@@ -1855,4 +1905,130 @@ function debugFallbackLayers() {
   } catch (error) {
     console.log(`   ❌ Actual generation failed: ${error.toString()}`);
   }
+}
+
+// ================================================
+// ENHANCED DEBUGGING HELPER FUNCTIONS
+// ================================================
+
+/**
+ * Extracts word boundaries and analyzes potential truncation issues
+ */
+function extractWordBoundaries(text) {
+  try {
+    const words = text.match(/\b[A-Z]{5,}\b/g) || [];
+    const analysis = {
+      total_words_found: words.length,
+      words_found: words.slice(0, 10), // First 10 words to avoid huge logs
+      potential_truncation: []
+    };
+    
+    // Check for common truncation patterns
+    const commonPrefixes = ['BLOCKCH', 'QUANTU', 'NETWOR', 'DATABAS', 'PROGRA', 'TECHNO'];
+    commonPrefixes.forEach(prefix => {
+      if (text.toUpperCase().includes(prefix) && !text.toUpperCase().includes(prefix + 'AIN')) {
+        analysis.potential_truncation.push(prefix);
+      }
+    });
+    
+    return analysis;
+  } catch (error) {
+    return { error: error.toString() };
+  }
+}
+
+/**
+ * Diagnostic function specifically for testing BLOCKCHAIN scenarios
+ */
+function debugGeminiResponse() {
+  console.log('🔍 DEBUG: Testing Gemini API response for BLOCKCHAIN scenarios...');
+  
+  const testDate = Utilities.formatDate(new Date(), SpreadsheetApp.getActiveSpreadsheet().getSpreadsheetTimeZone(), 'yyyy-MM-dd') + '-debug';
+  
+  try {
+    // Test with advanced prompt
+    console.log('📝 Testing with advanced prompt...');
+    const prompt = createAdvancedPrompt(testDate);
+    
+    logStructuredEvent('DEBUG', 'blockchain_test_start', testDate, 'Starting BLOCKCHAIN debug test', {
+      test_type: 'advanced_prompt',
+      prompt_length: prompt.length,
+      prompt_contains_blockchain: prompt.toUpperCase().includes('BLOCKCHAIN')
+    });
+    
+    const result = callGeminiWithRetries(testDate);
+    
+    if (result) {
+      console.log('✅ Test successful!');
+      console.log(`📊 P1 Answer: ${result.p1_answer} (Length: ${result.p1_answer?.length})`);
+      console.log(`📊 P2 Answer: ${result.p2_answer} (Length: ${result.p2_answer?.length})`);
+      
+      logStructuredEvent('SUCCESS', 'blockchain_test_complete', testDate, 'BLOCKCHAIN debug test completed', {
+        p1_answer: result.p1_answer,
+        p1_length: result.p1_answer?.length,
+        p2_answer: result.p2_answer,
+        p2_length: result.p2_answer?.length,
+        contains_blockchain: result.p1_answer?.includes('BLOCKCHAIN') || result.p2_answer?.includes('BLOCKCHAIN'),
+        contains_blockch: result.p1_answer?.includes('BLOCKCH') || result.p2_answer?.includes('BLOCKCH')
+      });
+    } else {
+      console.log('❌ Test failed - no result returned');
+      logStructuredEvent('ERROR', 'blockchain_test_failed', testDate, 'BLOCKCHAIN debug test failed - no result');
+    }
+    
+  } catch (error) {
+    console.log(`❌ Test error: ${error.toString()}`);
+    logStructuredEvent('ERROR', 'blockchain_test_error', testDate, 'BLOCKCHAIN debug test error', {
+      error: error.toString(),
+      error_stack: error.stack
+    });
+  }
+  
+  console.log('📋 Check the System_Log sheet for complete raw response data!');
+}
+
+/**
+ * Test function to verify BLOCKCHAIN cipher processing works correctly
+ */
+function testBlockchainCipher() {
+  console.log('🔐 Testing BLOCKCHAIN cipher processing...');
+  
+  const word = "BLOCKCHAIN";
+  const testResults = [];
+  
+  CIPHER_TYPES.forEach(cipherType => {
+    try {
+      const encrypted = applyCipher(word, cipherType);
+      console.log(`${cipherType}: ${word} → ${encrypted} (${word.length}→${encrypted.length})`);
+      
+      testResults.push({
+        cipher: cipherType,
+        input: word,
+        input_length: word.length,
+        output: encrypted,
+        output_length: encrypted.length,
+        length_preserved: word.length === encrypted.length,
+        status: 'SUCCESS'
+      });
+      
+    } catch (error) {
+      console.log(`${cipherType}: ERROR - ${error.toString()}`);
+      testResults.push({
+        cipher: cipherType,
+        input: word,
+        status: 'ERROR',
+        error: error.toString()
+      });
+    }
+  });
+  
+  logStructuredEvent('INFO', 'blockchain_cipher_test', null, 'BLOCKCHAIN cipher test completed', {
+    test_word: word,
+    test_results: testResults,
+    total_tests: CIPHER_TYPES.length,
+    successful_tests: testResults.filter(r => r.status === 'SUCCESS').length
+  });
+  
+  console.log('✅ BLOCKCHAIN cipher test completed. All ciphers should preserve length.');
+  return testResults;
 }
