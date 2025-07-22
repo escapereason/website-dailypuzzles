@@ -227,11 +227,19 @@ function callGeminiForPuzzleSequence(date) {
   
   const prompt = `Create a 3-puzzle cipher sequence for ${date} in the ${category} category using ${cipherType} encryption.
 
+MAINSTREAM RECOGNITION REQUIREMENTS:
+- Use ONLY words/brands/companies that MOST PEOPLE would recognize and could reasonably guess
+- Prefer major consumer brands, household names, famous companies especially from SF Bay Area
+- Examples of GOOD choices: APPLE, GOOGLE, TESLA, AMAZON, NETFLIX, DISNEY, SPOTIFY, MICROSOFT
+- Examples of BAD choices: LORA, KUBERNETES, PYTORCH, ANSIBLE, GRAFANA (too technical/obscure)
+- SF Bay Area preference: GOOGLE (Mountain View), APPLE (Cupertino), TESLA (Palo Alto), META (Menlo Park)
+- Target audience: general public with basic tech awareness, not experts
+
 STRUCTURE:
-1. Choose a word related to the trivia answer (5-8 letters, uppercase)
-2. Create a trivia question where that word is the answer
+1. Choose a MAINSTREAM RECOGNIZABLE word (5-8 letters, uppercase) that most people know
+2. Create accessible trivia question using general knowledge (not expert-only)
 3. Encrypt the word using the specified cipher
-4. Provide 3 progressive hints for trivia + alternative answers
+4. Provide 3 progressive hints accessible to general public + alternative answers
 
 CIPHER SYSTEMS:
 - rot13: Each letter shifted 13 positions (A→N, B→O, etc.)
@@ -244,30 +252,34 @@ CIPHER SYSTEMS:
 - atbash: Reverse alphabet (A→Z, B→Y, C→X, etc.)
 
 REQUIREMENTS:
-- p1_answer must be the trivia answer
-- Trivia question must be engaging and family-friendly
+- p1_answer must be mainstream recognizable (test: would a typical adult know this?)
+- p2_answer must be DIFFERENT from p1_answer but also mainstream recognizable
+- Trivia question must use general knowledge accessible to most people
 - Encryption must be accurately applied
 - Provide 3 progressive trivia hints (broad → specific → almost obvious)
 - Include alternative acceptable answers
 - All content appropriate for general audience
+- NO technical jargon or expert-only knowledge
 
 EXAMPLE FORMAT:
 {
   "cipher_type": "caesar_7",
-  "p1_answer": "JUPITER",
-  "p1_encrypted_word": "QBWPALY",
+  "p1_answer": "GOOGLE",
+  "p1_encrypted_word": "NVVNSL",
   "p1_hint": "Each letter has been shifted 7 positions forward in the alphabet",
-  "p2_question": "What is the largest planet in our solar system?",
-  "p2_hint1": "This gas giant has a Great Red Spot",
-  "p2_hint2": "It has over 80 moons including Io and Europa", 
-  "p2_hint3": "Named after the Roman king of the gods",
-  "p2_answer": "JUPITER",
-  "p2_alt_answers": "JUPITER PLANET,GAS GIANT,THE LARGEST PLANET,BIGGEST PLANET",
-  "p3_answer": "QBWPALY",
+  "p2_question": "What popular video streaming service started as a DVD-by-mail service and is known for original shows like Stranger Things?",
+  "p2_hint1": "Originally started by Reed Hastings as a DVD rental company",
+  "p2_hint2": "Famous for binge-watching culture and red logo", 
+  "p2_hint3": "Competes with Disney+ and Hulu for streaming dominance",
+  "p2_answer": "NETFLIX",
+  "p2_alt_answers": "NETFLIX,NETFLIX STREAMING,STREAMING SERVICE",
+  "p3_answer": "ULAOSPE",
   "p3_hint": "Use the same 7-position forward shift from Puzzle 1",
   "category": "${category}"
 }
 
+CRITICAL: Ensure p1_answer ≠ p2_answer and both are MAINSTREAM RECOGNIZABLE names.
+MUST USE MAINSTREAM RECOGNIZABLE NAMES - test if a typical adult would know the answer.
 Generate ONLY the JSON, no other text:`;
 
   const payload = {
@@ -316,9 +328,9 @@ Generate ONLY the JSON, no other text:`;
 function validateEncryption(puzzleData) {
   const { cipher_type, p1_answer, p1_encrypted_word, p2_answer, p3_answer } = puzzleData;
   
-  // Verify p1_answer matches p2_answer (both should be the same word)
-  if (p1_answer.toUpperCase() !== p2_answer.toUpperCase()) {
-    console.log(`Answer mismatch: p1_answer ${p1_answer} !== p2_answer ${p2_answer}`);
+  // UPDATED: Verify p1_answer and p2_answer are DIFFERENT (3-puzzle sequence requirement)
+  if (p1_answer.toUpperCase() === p2_answer.toUpperCase()) {
+    console.log(`Answer should be different: p1_answer ${p1_answer} === p2_answer ${p2_answer}`);
     return false;
   }
   
@@ -329,13 +341,71 @@ function validateEncryption(puzzleData) {
     return false;
   }
   
-  // Verify p3 encryption matches p1 encryption (same word, same cipher)
-  if (p3_answer !== p1_encrypted_word) {
-    console.log(`P3 encryption mismatch: expected ${p1_encrypted_word}, got ${p3_answer}`);
+  // UPDATED: Verify p3 encrypts p2_answer (not p1_answer)
+  const expectedP3Answer = applyCipher(p2_answer, cipher_type);
+  if (p3_answer !== expectedP3Answer) {
+    console.log(`P3 encryption mismatch: expected ${expectedP3Answer}, got ${p3_answer}`);
+    return false;
+  }
+  
+  // ENHANCED: Validate mainstream recognition
+  if (!isMainstreamRecognizable(p1_answer) || !isMainstreamRecognizable(p2_answer)) {
+    console.log(`Mainstream recognition failed: p1_answer ${p1_answer}, p2_answer ${p2_answer}`);
     return false;
   }
   
   return true;
+}
+
+// Enhanced function to validate if a term is mainstream recognizable
+function isMainstreamRecognizable(term) {
+  const upperTerm = term.toUpperCase();
+  
+  // SF Bay Area companies (PREFERRED)
+  const sfBayAreaCompanies = [
+    'GOOGLE', 'APPLE', 'TESLA', 'META', 'FACEBOOK', 'NETFLIX', 'UBER', 'LYFT',
+    'AIRBNB', 'TWITTER', 'ADOBE', 'SALESFORCE', 'INTEL', 'CISCO', 'ORACLE'
+  ];
+  
+  // Major mainstream brands and companies
+  const mainstreamBrands = [
+    'AMAZON', 'MICROSOFT', 'DISNEY', 'SPOTIFY', 'YOUTUBE', 'INSTAGRAM', 'TIKTOK',
+    'WALMART', 'TARGET', 'STARBUCKS', 'MCDONALDS', 'COSTCO', 'SAMSUNG', 'SONY',
+    'NIKE', 'ADIDAS', 'PEPSI', 'COCACOLA', 'VISA', 'MASTERCARD', 'PAYPAL'
+  ];
+  
+  // Common tech terms that general public knows
+  const commonTechTerms = [
+    'INTERNET', 'COMPUTER', 'MOBILE', 'PHONE', 'EMAIL', 'WEBSITE', 'BROWSER',
+    'LAPTOP', 'TABLET', 'DESKTOP', 'KEYBOARD', 'MOUSE', 'SCREEN', 'CAMERA'
+  ];
+  
+  // General knowledge terms
+  const generalTerms = [
+    'MUSIC', 'MOVIE', 'VIDEO', 'PHOTO', 'GAME', 'BOOK', 'NEWS', 'SPORTS',
+    'WEATHER', 'TRAVEL', 'FOOD', 'HEALTH', 'MONEY', 'CAR', 'HOME'
+  ];
+  
+  // Check if term is in any mainstream category
+  if (sfBayAreaCompanies.includes(upperTerm)) return true;
+  if (mainstreamBrands.includes(upperTerm)) return true;
+  if (commonTechTerms.includes(upperTerm)) return true;
+  if (generalTerms.includes(upperTerm)) return true;
+  
+  // Technical jargon that should be REJECTED
+  const technicalJargon = [
+    'LORA', 'LORAWAN', 'KUBERNETES', 'ANSIBLE', 'GRAFANA', 'PYTORCH', 'TENSORFLOW',
+    'HADOOP', 'APACHE', 'NGINX', 'REDIS', 'MONGODB', 'POSTGRESQL', 'MYSQL',
+    'JENKINS', 'GITLAB', 'BITBUCKET', 'JIRA', 'CONFLUENCE', 'KUBERNETES',
+    'DOCKER', 'MICROSERVICE', 'API', 'SDK', 'JSON', 'XML', 'HTTP', 'HTTPS',
+    'CSS', 'HTML', 'JAVASCRIPT', 'PYTHON', 'JAVA', 'GOLANG', 'RUST', 'SCALA'
+  ];
+  
+  // Reject technical jargon
+  if (technicalJargon.includes(upperTerm)) return false;
+  
+  // Default to cautious - if we're not sure, it's probably not mainstream enough
+  return false;
 }
 
 function applyCipher(word, cipherType) {
@@ -611,10 +681,17 @@ const CIPHER_DIFFICULTY = {
 };
 ```
 
-**Example Row with New Structure:**
+**Example Row with New Structure (ENHANCED FOR MAINSTREAM RECOGNITION):**
 | date | cipher_type | p1_answer | p1_encrypted_word | p1_hint | p2_question | p2_hint1 | p2_hint2 | p2_hint3 | p2_answer | p2_alt_answers | p3_answer | p3_hint | category | difficulty | source | validated | usage_count |
 |------|-------------|-----------|-------------------|---------|-------------|----------|----------|----------|-----------|----------------|-----------|---------|----------|------------|---------|-----------|-------------|
-| 2025-07-13 | caesar_7 | JUPITER | QBWPALY | "Each letter shifted 7 positions forward" | "What is the largest planet in our solar system?" | "This gas giant has a Great Red Spot" | "It has over 80 moons including Io and Europa" | "Named after the Roman king of the gods" | JUPITER | "JUPITER PLANET,GAS GIANT,THE LARGEST PLANET" | QBWPALY | "Use the same 7-position shift from Puzzle 1" | science | 3 | gemini_api | TRUE | 89 |
+| 2025-07-13 | caesar_3 | GOOGLE | JRRJOH | "Each letter shifted 3 positions forward" | "What popular video streaming service started as a DVD-by-mail service and is known for original shows like Stranger Things?" | "Originally started by Reed Hastings as a DVD rental company" | "Famous for binge-watching culture and red logo" | "Competes with Disney+ and Hulu for streaming dominance" | NETFLIX | "NETFLIX,NETFLIX STREAMING,STREAMING SERVICE" | QHWIOLB | "Use the same 3-position forward shift from Puzzle 1" | technology | 2 | gemini_api | TRUE | 89 |
+
+**Key Changes from Original Example:**
+- **p1_answer**: GOOGLE (SF Bay Area company, mainstream recognizable)
+- **p2_answer**: NETFLIX (Different from p1, also mainstream recognizable)  
+- **p3_answer**: Encrypts p2_answer (NETFLIX), not p1_answer
+- **Questions**: Use general knowledge accessible to most people
+- **NO obscure technical terms** like LORA, KUBERNETES, etc.
 
 ## P2 Trivia - Multiple Hints & Alternative Answers System
 
@@ -963,6 +1040,19 @@ Today's stats:
 
 ## 🚨 Critical Analysis & Improvements Needed
 
+### ✅ RESOLVED: Mainstream Recognition Enhancement (v2.0)
+
+**Issue Identified**: System generated obscure technical terms like "LORA,LORA WAN" that most users wouldn't recognize
+
+**Solution Implemented**:
+- **Enhanced Prompts**: All 3 prompt functions (advanced, simple, basic) now explicitly target mainstream recognition
+- **SF Bay Area Focus**: Prioritizes companies like GOOGLE, APPLE, TESLA, META, NETFLIX
+- **Content Validation**: New `isMainstreamRecognizable()` function validates all answers
+- **Technical Jargon Rejection**: Explicitly rejects terms like LORA, KUBERNETES, PYTORCH
+- **Target Audience Shift**: From "tech professionals" to "general public with basic tech awareness"
+
+**Result**: System now generates GOOGLE→NETFLIX instead of LORA→LORAWAN, dramatically improving user accessibility.
+
 ### Current Plan Issues Identified
 
 **1. Date/Timezone Handling**
@@ -977,9 +1067,9 @@ Today's stats:
 - **Problem**: Single static fallback if Gemini API fails
 - **Solution**: Multiple fallback puzzles + API retry logic with exponential backoff
 
-**4. Content Quality Control**
+**4. Content Quality Control** ✅ **ENHANCED**
 - **Problem**: No validation that Gemini generates appropriate puzzles
-- **Solution**: Content validation rules + human review queue
+- **Solution**: Content validation rules + human review queue + mainstream recognition validation
 
 **5. Scalability Concerns**
 - **Problem**: No rate limiting for concurrent users

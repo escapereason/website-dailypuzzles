@@ -379,7 +379,7 @@ function callGeminiAPI(apiUrl, prompt) {
 // ================================================
 
 /**
- * Creates advanced prompt with full complexity and requirements
+ * Creates advanced prompt with full complexity and requirements - ENHANCED FOR MAINSTREAM RECOGNITION
  */
 function createAdvancedPrompt(dateStr) {
   const category = getBalancedCategory(dateStr);
@@ -388,10 +388,17 @@ function createAdvancedPrompt(dateStr) {
   return `Create a sophisticated 3-puzzle cipher sequence for ${dateStr} in the ${category} category using ${cipherType} encryption.
 
 ADVANCED STRUCTURE:
-1. Choose a tech/space clue word (5-8 letters, uppercase) related to ${category}
-2. Create expert-level trivia question that REFERENCES the clue word but has DIFFERENT answer
+1. Choose a MAINSTREAM RECOGNIZABLE clue word (5-8 letters, uppercase) that most people know
+2. Create accessible trivia question that REFERENCES the clue word but has DIFFERENT answer
 3. P3 encrypts the P2 trivia answer (NOT the P1 clue word)
-4. Provide 3 progressive hints requiring specialized knowledge
+4. Provide 3 progressive hints accessible to general public
+
+MAINSTREAM RECOGNITION REQUIREMENTS:
+- Use words/brands/companies that MOST PEOPLE would recognize and could reasonably guess
+- Prefer major consumer brands, household names, famous companies especially from SF Bay Area
+- Examples of GOOD choices: APPLE, GOOGLE, TESLA, AMAZON, NETFLIX, DISNEY, SPOTIFY, MICROSOFT
+- Examples of BAD choices: LORA, KUBERNETES, PYTORCH, ANSIBLE, GRAFANA (too technical/obscure)
+- SF Bay Area preference: GOOGLE (Mountain View), APPLE (Cupertino), TESLA (Palo Alto), META (Menlo Park)
 
 CIPHER SYSTEMS:
 - rot13: Each letter shifted 13 positions (A→N, B→O, etc.)
@@ -403,13 +410,13 @@ CIPHER SYSTEMS:
 - caesar_neg5: Each letter shifted 5 positions backward (F→A, G→B, etc.)
 - atbash: Reverse alphabet (A→Z, B→Y, C→X, etc.)
 
-EXPERT REQUIREMENTS:
-- p1_answer is clue word (5-8 letters, ${category} related)
-- p2_answer must be DIFFERENT from p1_answer but conceptually related
-- P2 question references P1 clue word and requires expert knowledge
+MAINSTREAM ACCESSIBILITY REQUIREMENTS:
+- p1_answer is mainstream recognizable word (5-8 letters, ${category} related)
+- p2_answer must be DIFFERENT from p1_answer but also mainstream recognizable
+- P2 question references P1 clue word and uses general knowledge (not expert-only)
 - p3_answer encrypts P2 answer using same cipher as P1
 - Progressive hints: Historical context → Cipher type → Exact parameter
-- Target audience: tech professionals, space enthusiasts, developers
+- Target audience: general public with basic tech awareness, not experts
 
 PROGRESSIVE HINT SYSTEM:
 - p1_hint1: Historical/contextual hint about cipher (no direct mention)
@@ -419,28 +426,29 @@ PROGRESSIVE HINT SYSTEM:
 EXAMPLE (${cipherType}, ${category}):
 {
   "cipher_type": "${cipherType}",
-  "p1_answer": "APOLLO",
-  "p1_encrypted_word": "DSROOR",
+  "p1_answer": "GOOGLE",
+  "p1_encrypted_word": "JRRJOH",
   "p1_hint1": "This cipher method was used by Julius Caesar in his military campaigns",
   "p1_hint2": "This is a Caesar cipher",
   "p1_hint3": "3",
-  "p2_question": "What programming language powers most modern AI frameworks including TensorFlow and PyTorch?",
-  "p2_hint1": "Created by Guido van Rossum with philosophy of readable code",
-  "p2_hint2": "Named after a British comedy troupe, not the reptile", 
-  "p2_hint3": "Uses indentation for code blocks and .py file extension",
-  "p2_answer": "PYTHON",
-  "p2_alt_answers": "PYTHON,PYTHON LANGUAGE,PYTHON PROGRAMMING,PY",
-  "p3_answer": "SBWKRQ",
-  "p3_hint": "Use the same 3-position forward shift to encrypt the programming language",
+  "p2_question": "What popular video streaming service started as a DVD-by-mail service and is known for original shows like Stranger Things?",
+  "p2_hint1": "Originally started by Reed Hastings as a DVD rental company",
+  "p2_hint2": "Famous for binge-watching culture and red logo", 
+  "p2_hint3": "Competes with Disney+ and Hulu for streaming dominance",
+  "p2_answer": "NETFLIX",
+  "p2_alt_answers": "NETFLIX,NETFLIX STREAMING",
+  "p3_answer": "QHWIOLB",
+  "p3_hint": "Use the same 3-position forward shift to encrypt the streaming service",
   "category": "${category}"
 }
 
 CRITICAL: Ensure p1_answer ≠ p2_answer and p3_answer = encrypted(p2_answer, cipher_type).
+MUST USE MAINSTREAM RECOGNIZABLE NAMES - test if a typical adult would know the answer.
 Generate ONLY valid JSON, no other text:`;
 }
 
 /**
- * Creates simplified prompt for retry attempts
+ * Creates simplified prompt for retry attempts - ENHANCED FOR MAINSTREAM RECOGNITION
  */
 function createSimplePrompt(dateStr) {
   const category = getBalancedCategory(dateStr);
@@ -448,49 +456,60 @@ function createSimplePrompt(dateStr) {
   
   return `Create a 3-puzzle cipher sequence for ${dateStr}. Use ${cipherType} cipher and ${category} theme.
 
+MAINSTREAM RECOGNITION FOCUS:
+- Use ONLY words/brands/companies that regular people know
+- Think: major brands, household names, famous companies (especially SF Bay Area)
+- GOOD examples: APPLE, GOOGLE, TESLA, AMAZON, NETFLIX, DISNEY, SPOTIFY
+- BAD examples: technical jargon, obscure terms, expert-only knowledge
+
 Structure:
-1. Decrypt a clue word (P1)
-2. Answer trivia about the topic (P2) - DIFFERENT answer than P1
+1. Decrypt a mainstream recognizable clue word (P1)
+2. Answer accessible trivia about the topic (P2) - DIFFERENT answer than P1
 3. Encrypt the trivia answer (P3)
 
 Requirements:
-- P1 and P2 must have different answers
+- P1 and P2 must have different answers that MOST PEOPLE would recognize
 - P3 encrypts P2 answer using same cipher as P1
-- Include 3 hints for each puzzle
+- Include 3 hints accessible to general public (not experts)
+- SF Bay Area companies preferred: GOOGLE, APPLE, TESLA, META
 
 Generate only JSON format:
 {
   "cipher_type": "${cipherType}",
-  "p1_answer": "WORD1",
+  "p1_answer": "MAINSTREAM_WORD1",
   "p1_encrypted_word": "ENCRYPTED_WORD1",
-  "p1_hint1": "Historical hint",
-  "p1_hint2": "Cipher type",
-  "p1_hint3": "Parameter",
-  "p2_question": "Question about topic?",
-  "p2_hint1": "Broad hint",
-  "p2_hint2": "Specific hint",
-  "p2_hint3": "Obvious hint",
-  "p2_answer": "WORD2",
-  "p2_alt_answers": "WORD2,ALTERNATIVE",
+  "p1_hint1": "Historical hint about cipher",
+  "p1_hint2": "Cipher type identification",
+  "p1_hint3": "Exact parameter/shift",
+  "p2_question": "Accessible question about recognizable topic?",
+  "p2_hint1": "General knowledge hint",
+  "p2_hint2": "More specific accessible hint",
+  "p2_hint3": "Obvious mainstream hint",
+  "p2_answer": "MAINSTREAM_WORD2",
+  "p2_alt_answers": "MAINSTREAM_WORD2,ALTERNATIVE",
   "p3_answer": "ENCRYPTED_WORD2",
-  "p3_hint": "Encryption hint",
+  "p3_hint": "Use same cipher to encrypt the answer",
   "category": "${category}"
 }`;
 }
 
 /**
- * Creates basic prompt as last resort
+ * Creates basic prompt as last resort - ENHANCED FOR MAINSTREAM RECOGNITION
  */
 function createBasicPrompt(dateStr) {
   const category = getBalancedCategory(dateStr);
   const cipherType = getBalancedCipher(dateStr);
   
   return `Create a simple cipher puzzle for ${dateStr} in ${category} category:
-1. A word to decrypt (P1)
-2. A trivia question with DIFFERENT answer (P2)
+1. A MAINSTREAM RECOGNIZABLE word to decrypt (P1) - think APPLE, GOOGLE, TESLA
+2. An accessible trivia question with DIFFERENT mainstream answer (P2)
 3. Encrypt the trivia answer (P3)
 
-Use ${cipherType} cipher. P1 and P2 answers must be different words.
+CRITICAL: Use ONLY words that regular people know - major brands, household names, famous companies.
+Prefer SF Bay Area companies: GOOGLE, APPLE, TESLA, META, NETFLIX, UBER.
+NO technical jargon or expert-only terms.
+
+Use ${cipherType} cipher. P1 and P2 answers must be different mainstream words.
 
 Return only JSON with these fields: cipher_type, p1_answer, p1_encrypted_word, p1_hint1, p1_hint2, p1_hint3, p2_question, p2_hint1, p2_hint2, p2_hint3, p2_answer, p2_alt_answers, p3_answer, p3_hint, category`;
 }
@@ -723,7 +742,7 @@ function validateEncryptionLogic(puzzle) {
 }
 
 /**
- * Validates content quality
+ * Validates content quality - ENHANCED WITH MAINSTREAM RECOGNITION VALIDATION
  */
 function validateContentQuality(puzzle) {
   // Check for appropriate length
@@ -736,7 +755,77 @@ function validateContentQuality(puzzle) {
   // Check for hint progression
   if (puzzle.p1_hint1.length < 10 || puzzle.p2_hint1.length < 10) return false;
   
+  // ENHANCED: Mainstream recognition validation
+  if (!isMainstreamRecognizable(puzzle.p1_answer)) return false;
+  if (!isMainstreamRecognizable(puzzle.p2_answer)) return false;
+  
   return true;
+}
+
+/**
+ * Enhanced function to validate if a term is mainstream recognizable
+ */
+function isMainstreamRecognizable(term) {
+  const upperTerm = term.toUpperCase();
+  
+  // SF Bay Area companies (PREFERRED)
+  const sfBayAreaCompanies = [
+    'GOOGLE', 'APPLE', 'TESLA', 'META', 'FACEBOOK', 'NETFLIX', 'UBER', 'LYFT',
+    'AIRBNB', 'TWITTER', 'ADOBE', 'SALESFORCE', 'INTEL', 'CISCO', 'ORACLE'
+  ];
+  
+  // Major mainstream brands and companies
+  const mainstreamBrands = [
+    'AMAZON', 'MICROSOFT', 'DISNEY', 'SPOTIFY', 'YOUTUBE', 'INSTAGRAM', 'TIKTOK',
+    'WALMART', 'TARGET', 'STARBUCKS', 'MCDONALDS', 'COSTCO', 'SAMSUNG', 'SONY',
+    'NIKE', 'ADIDAS', 'PEPSI', 'COCACOLA', 'VISA', 'MASTERCARD', 'PAYPAL'
+  ];
+  
+  // Common tech terms that general public knows
+  const commonTechTerms = [
+    'INTERNET', 'COMPUTER', 'MOBILE', 'PHONE', 'EMAIL', 'WEBSITE', 'BROWSER',
+    'LAPTOP', 'TABLET', 'DESKTOP', 'KEYBOARD', 'MOUSE', 'SCREEN', 'CAMERA'
+  ];
+  
+  // General knowledge terms
+  const generalTerms = [
+    'MUSIC', 'MOVIE', 'VIDEO', 'PHOTO', 'GAME', 'BOOK', 'NEWS', 'SPORTS',
+    'WEATHER', 'TRAVEL', 'FOOD', 'HEALTH', 'MONEY', 'CAR', 'HOME'
+  ];
+  
+  // Check if term is in any mainstream category
+  if (sfBayAreaCompanies.includes(upperTerm)) return true;
+  if (mainstreamBrands.includes(upperTerm)) return true;
+  if (commonTechTerms.includes(upperTerm)) return true;
+  if (generalTerms.includes(upperTerm)) return true;
+  
+  // Technical jargon that should be REJECTED
+  const technicalJargon = [
+    'LORA', 'LORAWAN', 'KUBERNETES', 'ANSIBLE', 'GRAFANA', 'PYTORCH', 'TENSORFLOW',
+    'HADOOP', 'APACHE', 'NGINX', 'REDIS', 'MONGODB', 'POSTGRESQL', 'MYSQL',
+    'JENKINS', 'GITLAB', 'BITBUCKET', 'JIRA', 'CONFLUENCE', 'KUBERNETES',
+    'DOCKER', 'MICROSERVICE', 'API', 'SDK', 'JSON', 'XML', 'HTTP', 'HTTPS',
+    'CSS', 'HTML', 'JAVASCRIPT', 'PYTHON', 'JAVA', 'GOLANG', 'RUST', 'SCALA'
+  ];
+  
+  // Reject technical jargon
+  if (technicalJargon.includes(upperTerm)) return false;
+  
+  // If not explicitly approved or rejected, apply heuristics
+  // Short terms (3-4 letters) are often abbreviations - be careful
+  if (upperTerm.length <= 4) {
+    // Only allow if it's a very common abbreviation
+    const commonAbbrevs = ['NASA', 'FBI', 'CIA', 'DVD', 'GPS', 'USB', 'WIFI', 'TV'];
+    return commonAbbrevs.includes(upperTerm);
+  }
+  
+  // For longer terms, be more permissive but still cautious
+  // If it contains common word patterns, it might be okay
+  const commonWordParts = ['TECH', 'SOFT', 'HARD', 'NET', 'WEB', 'DIGITAL', 'SMART'];
+  const hasCommonPart = commonWordParts.some(part => upperTerm.includes(part));
+  
+  // Default to cautious - if we're not sure, it's probably not mainstream enough
+  return hasCommonPart;
 }
 
 /**
@@ -2031,4 +2120,125 @@ function testBlockchainCipher() {
   
   console.log('✅ BLOCKCHAIN cipher test completed. All ciphers should preserve length.');
   return testResults;
+}
+
+/**
+ * Test function to verify enhanced mainstream recognition validation
+ */
+function testMainstreamRecognition() {
+  console.log('🎯 Testing enhanced mainstream recognition validation...');
+  
+  // Test cases
+  const testCases = [
+    // Should PASS (mainstream)
+    { term: 'GOOGLE', expected: true, category: 'SF Bay Area company' },
+    { term: 'APPLE', expected: true, category: 'SF Bay Area company' },
+    { term: 'TESLA', expected: true, category: 'SF Bay Area company' },
+    { term: 'NETFLIX', expected: true, category: 'SF Bay Area company' },
+    { term: 'AMAZON', expected: true, category: 'Mainstream brand' },
+    { term: 'DISNEY', expected: true, category: 'Mainstream brand' },
+    { term: 'SPOTIFY', expected: true, category: 'Mainstream brand' },
+    { term: 'INTERNET', expected: true, category: 'Common tech term' },
+    { term: 'COMPUTER', expected: true, category: 'Common tech term' },
+    { term: 'MUSIC', expected: true, category: 'General term' },
+    { term: 'NASA', expected: true, category: 'Common abbreviation' },
+    
+    // Should FAIL (too technical/obscure)
+    { term: 'LORA', expected: false, category: 'Technical jargon' },
+    { term: 'LORAWAN', expected: false, category: 'Technical jargon' },
+    { term: 'KUBERNETES', expected: false, category: 'Technical jargon' },
+    { term: 'ANSIBLE', expected: false, category: 'Technical jargon' },
+    { term: 'PYTORCH', expected: false, category: 'Technical jargon' },
+    { term: 'GRAFANA', expected: false, category: 'Technical jargon' },
+    { term: 'HADOOP', expected: false, category: 'Technical jargon' },
+    { term: 'REDIS', expected: false, category: 'Technical jargon' },
+    { term: 'API', expected: false, category: 'Technical abbreviation' },
+    { term: 'SDK', expected: false, category: 'Technical abbreviation' }
+  ];
+  
+  const results = [];
+  let passed = 0;
+  let failed = 0;
+  
+  testCases.forEach(testCase => {
+    try {
+      const result = isMainstreamRecognizable(testCase.term);
+      const success = result === testCase.expected;
+      
+      if (success) {
+        passed++;
+        console.log(`✅ ${testCase.term}: ${result} (${testCase.category}) - CORRECT`);
+      } else {
+        failed++;
+        console.log(`❌ ${testCase.term}: ${result} (expected ${testCase.expected}) (${testCase.category}) - WRONG`);
+      }
+      
+      results.push({
+        term: testCase.term,
+        expected: testCase.expected,
+        actual: result,
+        success: success,
+        category: testCase.category
+      });
+      
+    } catch (error) {
+      failed++;
+      console.log(`❌ ${testCase.term}: ERROR - ${error.toString()}`);
+      results.push({
+        term: testCase.term,
+        expected: testCase.expected,
+        actual: 'ERROR',
+        success: false,
+        error: error.toString()
+      });
+    }
+  });
+  
+  console.log(`\n📊 Test Results: ${passed}/${testCases.length} passed (${failed} failed)`);
+  
+  logStructuredEvent('INFO', 'mainstream_recognition_test', null, 'Mainstream recognition validation test completed', {
+    total_tests: testCases.length,
+    passed: passed,
+    failed: failed,
+    success_rate: (passed / testCases.length * 100).toFixed(1) + '%',
+    results: results
+  });
+  
+  return results;
+}
+
+/**
+ * Test enhanced prompts to see what kind of content they would generate
+ */
+function testEnhancedPrompts() {
+  console.log('🔄 Testing enhanced prompts for mainstream content generation...');
+  
+  const testDate = '2025-07-21-test';
+  
+  console.log('\n📝 Testing Advanced Prompt:');
+  const advancedPrompt = createAdvancedPrompt(testDate);
+  console.log('Contains "MAINSTREAM":', advancedPrompt.includes('MAINSTREAM'));
+  console.log('Contains "SF Bay Area":', advancedPrompt.includes('SF Bay Area'));
+  console.log('Contains "GOOGLE, APPLE, TESLA":', advancedPrompt.includes('GOOGLE, APPLE, TESLA'));
+  console.log('Contains "LORA" in bad examples:', advancedPrompt.includes('LORA'));
+  
+  console.log('\n📝 Testing Simple Prompt:');
+  const simplePrompt = createSimplePrompt(testDate);
+  console.log('Contains "MAINSTREAM":', simplePrompt.includes('MAINSTREAM'));
+  console.log('Contains "regular people":', simplePrompt.includes('regular people'));
+  
+  console.log('\n📝 Testing Basic Prompt:');
+  const basicPrompt = createBasicPrompt(testDate);
+  console.log('Contains "MAINSTREAM RECOGNIZABLE":', basicPrompt.includes('MAINSTREAM RECOGNIZABLE'));
+  console.log('Contains "NO technical jargon":', basicPrompt.includes('NO technical jargon'));
+  
+  logStructuredEvent('INFO', 'enhanced_prompts_test', testDate, 'Enhanced prompts tested for mainstream content focus', {
+    advanced_mainstream_focus: advancedPrompt.includes('MAINSTREAM'),
+    simple_mainstream_focus: simplePrompt.includes('MAINSTREAM'),
+    basic_mainstream_focus: basicPrompt.includes('MAINSTREAM'),
+    sf_bay_area_mentioned: advancedPrompt.includes('SF Bay Area'),
+    technical_jargon_rejected: basicPrompt.includes('NO technical jargon')
+  });
+  
+  console.log('✅ Enhanced prompts successfully configured for mainstream recognition!');
 }
