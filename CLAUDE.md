@@ -278,6 +278,32 @@ Prioritize user experience over technical complexity - the technology should be 
 
 Remember that this system will run autonomously once deployed, so invest heavily in error handling, monitoring, and fallback mechanisms to ensure consistent daily operation without manual intervention.
 
+## Content Strategy - Universal Concepts Focus
+
+The system has been updated to avoid company-specific references and focus on universally recognizable concepts:
+
+### Preferred Content Categories
+- **Science & Nature**: NEWTON, GRAVITY, OXYGEN, NITROGEN, MARS, AFRICA
+- **Geography & Culture**: PACIFIC, PYRAMID, PIANO, CONTINENT
+- **Historical Concepts**: Ancient wonders, scientific discoveries, inventions
+- **Universal Knowledge**: Elements, planets, forces, musical instruments
+
+### Content Guidelines
+- **Avoid**: Company names, founder references, brand-specific knowledge
+- **Prefer**: Scientific terms, natural phenomena, cultural universals
+- **Target**: Knowledge accessible to general audiences worldwide
+- **Focus**: Educational value over commercial awareness
+
+### Alternative Question Types
+Instead of "What company was founded by X?", use:
+- "What scientist discovered/invented X?"
+- "What natural phenomenon causes X?"
+- "What ancient wonder is located in X?"
+- "What element has the symbol X?"
+- "What planet is known as X?"
+
+This approach maintains puzzle difficulty while ensuring global accessibility and educational value.
+
 ## AI Collaboration Guidelines
 
 When developing this system with AI assistance:

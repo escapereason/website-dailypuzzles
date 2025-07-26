@@ -9,12 +9,11 @@
 | `GoogleSheets_Template_Current_Puzzle.csv` | Headers for Landbot integration tab |
 | `GoogleSheets_Template_Usage_Log.csv` | Headers for user analytics tab |
 | `GoogleSheets_Template_System_Log.csv` | Headers for technical monitoring tab |
-| `GoogleSheets_Template_Fallback_Puzzles.csv` | Sample backup puzzles with data |
 | `SETUP_INSTRUCTIONS.md` | Complete step-by-step setup guide |
 
 ## ⚡ Quick Setup Checklist
 
-- [ ] Create Google Sheet with 5 tabs
+- [ ] Create Google Sheet with 4 tabs
 - [ ] Import CSV files for structure
 - [ ] Copy Apps Script code and set GEMINI_API_KEY
 - [ ] Run `initialSetup()` function
@@ -30,7 +29,7 @@
 | `setupDailyTrigger()` | Enable daily automation | Once after installation |
 | `createInitialPuzzle()` | Add today's puzzle | Once to get started |
 | `generateDailyPuzzleSequence()` | Generate tomorrow's puzzle | Automatically daily at 1 AM |
-| `testCiphers()` | Validate cipher implementations | For troubleshooting |
+| `refreshTodaysPuzzle()` | Refresh today's puzzle with new content | For testing/troubleshooting |
 
 ## 🎯 Landbot Variable Mapping
 
@@ -68,12 +67,11 @@ User completion: Optional Web App call → Updates usage_count
 
 ## 📊 Google Sheet Structure
 
-**5 Tabs Required:**
-1. **Daily_Puzzles** - Main data (20 columns A-T)
+**4 Tabs Required:**
+1. **Daily_Puzzles** - Main data (15 columns A-O)
 2. **Current_Puzzle** - Today's puzzle for Landbot (15 columns A-O, row 2)
-3. **Usage_Log** - User analytics (10 columns)
-4. **System_Log** - Technical monitoring (7 columns)
-5. **Fallback_Puzzles** - Emergency backups (same as Daily_Puzzles)
+3. **Usage_Log** - User analytics (3 columns)
+4. **System_Log** - Technical monitoring (4 columns)
 
 ## 🚨 Troubleshooting Quick Fixes
 
@@ -87,9 +85,9 @@ createInitialPuzzle()
 setupDailyTrigger()
 ```
 
-**Test if ciphers work:**
+**Refresh today's puzzle:**
 ```javascript
-testCiphers()
+refreshTodaysPuzzle()
 ```
 
 **Manual puzzle generation:**

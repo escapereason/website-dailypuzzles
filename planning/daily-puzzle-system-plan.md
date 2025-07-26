@@ -228,11 +228,11 @@ function callGeminiForPuzzleSequence(date) {
   const prompt = `Create a 3-puzzle cipher sequence for ${date} in the ${category} category using ${cipherType} encryption.
 
 MAINSTREAM RECOGNITION REQUIREMENTS:
-- Use ONLY words/brands/companies that MOST PEOPLE would recognize and could reasonably guess
-- Prefer major consumer brands, household names, famous companies especially from SF Bay Area
-- Examples of GOOD choices: APPLE, GOOGLE, TESLA, AMAZON, NETFLIX, DISNEY, SPOTIFY, MICROSOFT
+- Use ONLY concepts/terms/subjects that MOST PEOPLE would recognize and could reasonably guess
+- Prefer universal concepts, household terms, widely known subjects from science and culture
+- Examples of GOOD choices: NATURE, OCEAN, PLANET, SCIENCE, HISTORY, MUSIC, LITERATURE, GEOGRAPHY
 - Examples of BAD choices: LORA, KUBERNETES, PYTORCH, ANSIBLE, GRAFANA (too technical/obscure)
-- SF Bay Area preference: GOOGLE (Mountain View), APPLE (Cupertino), TESLA (Palo Alto), META (Menlo Park)
+- Universal preference: NATURE (science), OCEAN (geography), PLANET (astronomy), MUSIC (culture)
 - Target audience: general public with basic tech awareness, not experts
 
 STRUCTURE:
@@ -361,14 +361,14 @@ function validateEncryption(puzzleData) {
 function isMainstreamRecognizable(term) {
   const upperTerm = term.toUpperCase();
   
-  // SF Bay Area companies (PREFERRED)
-  const sfBayAreaCompanies = [
+  // Universal concepts (PREFERRED)
+  const universalConcepts = [
     'GOOGLE', 'APPLE', 'TESLA', 'META', 'FACEBOOK', 'NETFLIX', 'UBER', 'LYFT',
     'AIRBNB', 'TWITTER', 'ADOBE', 'SALESFORCE', 'INTEL', 'CISCO', 'ORACLE'
   ];
   
-  // Major mainstream brands and companies
-  const mainstreamBrands = [
+  // Major universal subjects and concepts
+  const universalSubjects = [
     'AMAZON', 'MICROSOFT', 'DISNEY', 'SPOTIFY', 'YOUTUBE', 'INSTAGRAM', 'TIKTOK',
     'WALMART', 'TARGET', 'STARBUCKS', 'MCDONALDS', 'COSTCO', 'SAMSUNG', 'SONY',
     'NIKE', 'ADIDAS', 'PEPSI', 'COCACOLA', 'VISA', 'MASTERCARD', 'PAYPAL'
@@ -387,8 +387,8 @@ function isMainstreamRecognizable(term) {
   ];
   
   // Check if term is in any mainstream category
-  if (sfBayAreaCompanies.includes(upperTerm)) return true;
-  if (mainstreamBrands.includes(upperTerm)) return true;
+  if (universalConcepts.includes(upperTerm)) return true;
+  if (universalSubjects.includes(upperTerm)) return true;
   if (commonTechTerms.includes(upperTerm)) return true;
   if (generalTerms.includes(upperTerm)) return true;
   
@@ -687,7 +687,7 @@ const CIPHER_DIFFICULTY = {
 | 2025-07-13 | caesar_3 | GOOGLE | JRRJOH | "Each letter shifted 3 positions forward" | "What popular video streaming service started as a DVD-by-mail service and is known for original shows like Stranger Things?" | "Originally started by Reed Hastings as a DVD rental company" | "Famous for binge-watching culture and red logo" | "Competes with Disney+ and Hulu for streaming dominance" | NETFLIX | "NETFLIX,NETFLIX STREAMING,STREAMING SERVICE" | QHWIOLB | "Use the same 3-position forward shift from Puzzle 1" | technology | 2 | gemini_api | TRUE | 89 |
 
 **Key Changes from Original Example:**
-- **p1_answer**: GOOGLE (SF Bay Area company, mainstream recognizable)
+- **p1_answer**: NATURE (Universal concept, mainstream recognizable)
 - **p2_answer**: NETFLIX (Different from p1, also mainstream recognizable)  
 - **p3_answer**: Encrypts p2_answer (NETFLIX), not p1_answer
 - **Questions**: Use general knowledge accessible to most people
@@ -1046,7 +1046,7 @@ Today's stats:
 
 **Solution Implemented**:
 - **Enhanced Prompts**: All 3 prompt functions (advanced, simple, basic) now explicitly target mainstream recognition
-- **SF Bay Area Focus**: Prioritizes companies like GOOGLE, APPLE, TESLA, META, NETFLIX
+- **Universal Focus**: Prioritizes concepts like NATURE, SCIENCE, HISTORY, CULTURE, GEOGRAPHY
 - **Content Validation**: New `isMainstreamRecognizable()` function validates all answers
 - **Technical Jargon Rejection**: Explicitly rejects terms like LORA, KUBERNETES, PYTORCH
 - **Target Audience Shift**: From "tech professionals" to "general public with basic tech awareness"

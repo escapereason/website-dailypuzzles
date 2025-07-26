@@ -20,14 +20,14 @@ Here's the full conversational flow as the user experiences it:
 ```
 🔐 **WELCOME TO THE DAILY CIPHER CHALLENGE**
 
-Ready to test your skills against today's expert-level puzzles? 
+Ready to test your skills against today's challenging puzzles? 
 
 You'll face 3 challenges:
 🧩 Decrypt a mysterious code
 🔑 Generate the secret codeword  
 🔒 Encrypt like a pro
 
-Only true codebreakers can master all three!
+Can you solve all three challenges?
 
 Are you ready to begin? [Let's Go!]
 ```
@@ -90,7 +90,7 @@ Let's move on to the trivia round...
 🎉 **BRILLIANT!** 
 You cracked: {{@p1_encrypted_word}} → **{{@p1_answer}}**
 
-You're clearly ready for the expert challenge...
+You're clearly ready for the next challenge...
 ```
 
 #### **🔑 PUZZLE 2: GENERATE THE SECRET CODEWORD**
@@ -99,13 +99,13 @@ You're clearly ready for the expert challenge...
 
 Your decryption revealed a clue: **{{@p1_answer}}**
 
-Now use your expertise to generate the secret codeword:
+Now use your knowledge to generate the secret codeword:
 
 ❓ {{@p2_question}}
 
 💡 The answer becomes your codeword
 💡 Type "hint" if you need a clue
-💡 Think like a tech expert!
+💡 Think like a puzzle solver!
 
 What's the codeword?
 ```
@@ -140,7 +140,7 @@ This should give it away! Your answer?
 ```
 🚫 **NO MORE HINTS!**
 You've used all available clues.
-Time to trust your expertise!
+Time to trust your knowledge!
 
 Your final answer?
 ```
@@ -150,7 +150,7 @@ Your final answer?
 ❌ **That's not the secret codeword!**
 
 💭 Think about: {{category}}
-🎯 Use your expertise to find the right word
+🎯 Use your knowledge to find the right word
 💡 Need a hint? Just type "hint"
 
 Try again!
@@ -161,7 +161,7 @@ Try again!
 🤓 **CHALLENGING CODEWORD!** 
 The secret word was: **{{@p2_answer}}**
 
-Even experts get stumped sometimes!
+Even experienced puzzle solvers get stumped sometimes!
 Now for the final encryption challenge...
 ```
 
@@ -174,7 +174,7 @@ You clearly know your {{@category}}!
 Time for the ultimate test...
 ```
 
-#### **🔒 PUZZLE 3: THE ENCRYPTION MASTER CHALLENGE**
+#### **🔒 PUZZLE 3: THE ENCRYPTION CHALLENGE**
 ```
 **PUZZLE 3: BECOME THE CIPHER MASTER**
 
@@ -220,7 +220,7 @@ Let's see your final score...
 
 **COMPLETE SUCCESS (all 3 puzzles solved):**
 ```
-🏆 **LEGENDARY CODEBREAKER!**
+🏆 **PUZZLE CHAMPION!**
 
 You've MASTERED today's cipher challenge!
 
@@ -232,7 +232,7 @@ You've MASTERED today's cipher challenge!
 🎯 **CIPHER MASTERED:** {{@cipher_type}}
 🎪 **CATEGORY CONQUERED:** {{@category}}
 
-You're officially a CRYPTO GENIUS! 🧠🔥
+You're officially a CIPHER MASTER! 🧠🔥
 
 🎮 Ready for tomorrow's challenge?
 📧 Subscribe for daily puzzles!
@@ -264,17 +264,17 @@ Tomorrow's challenge awaits...
 
 **Motivation Messages:**
 ```
-🔥 "You're thinking like a true hacker!"
-🎯 "Your tech knowledge is impressive!"
+🔥 "You're thinking like a true puzzle solver!"
+🎯 "Your puzzle-solving skills are impressive!"
 💪 "Real experts don't give up!"
-🧠 "Channel your inner cybersecurity expert!"
-⚡ "You've got the mind of a codebreaker!"
+🧠 "Channel your inner code enthusiast!"
+⚡ "You've got the puzzle-solving mindset!"
 ```
 
 **Encouragement After Mistakes:**
 ```
-💡 "Even the best cryptographers make mistakes!"
-🎯 "Every expert was once a beginner!"
+💡 "Even experienced puzzle solvers make mistakes!"
+🎯 "Every master was once a beginner!"
 🔥 "Persistence beats perfection!"
 💪 "You're learning the mindset!"
 ```
@@ -283,7 +283,7 @@ Tomorrow's challenge awaits...
 ```
 🚀 Space: "Houston, we have a genius!"
 🤖 AI: "Your neural networks are firing!"
-🔐 Cybersecurity: "You think like a white hat!"
+🔐 Security: "You think like a code enthusiast!"
 ⚛️ Quantum: "Your qubits are aligned!"
 ```
 

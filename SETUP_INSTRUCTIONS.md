@@ -1,7 +1,7 @@
 # Daily Cipher Challenge - Complete Setup Guide
 
 ## 📋 Overview
-This guide will help you set up the complete Daily Cipher Challenge system with automatic puzzle generation using Gemini AI, Google Sheets storage, and Landbot integration.
+This guide will help you set up the simplified Daily Cipher Challenge system with reliable Gemini AI puzzle generation, Google Sheets storage, and Landbot integration. This version focuses on making Gemini work consistently instead of relying on fallback systems.
 
 ## 🔧 Prerequisites
 - Google Account with access to Google Sheets and Apps Script
@@ -15,12 +15,11 @@ This guide will help you set up the complete Daily Cipher Challenge system with 
 2. Create a new sheet named: **"Daily Cipher Challenges Database"**
 
 ### 1.2 Set Up Sheet Tabs
-Create 5 tabs with these exact names:
+Create 4 tabs with these exact names:
 - `Daily_Puzzles`
 - `Current_Puzzle` 
 - `Usage_Log`
 - `System_Log`
-- `Fallback_Puzzles`
 
 ### 1.3 Import CSV Data
 
@@ -41,10 +40,6 @@ Create 5 tabs with these exact names:
 **For Current_Puzzle tab:**
 1. Select the `Current_Puzzle` tab
 2. Import `GoogleSheets_Template_Current_Puzzle.csv`
-
-**For Fallback_Puzzles tab:**
-1. Select the `Fallback_Puzzles` tab
-2. Import `GoogleSheets_Template_Fallback_Puzzles.csv`
 
 ### 1.4 Important Note About Current_Puzzle Tab
 The `Current_Puzzle` tab will be automatically populated by the Apps Script when you run the initial setup. This tab always contains row 2 with today's puzzle data for easy Landbot integration.
@@ -69,9 +64,9 @@ The `Current_Puzzle` tab will be automatically populated by the Apps Script when
 1. Click "Run" on the `initialSetup` function
 2. Grant permissions when prompted
 3. The function will:
-   - Create your first puzzle
+   - Create your first puzzle using Gemini AI
    - Set up daily automation
-   - Test the system
+   - Test the simplified system
 
 ### 2.4 Deploy Web App (for Landbot integration)
 1. Click "Deploy → New deployment"
@@ -154,8 +149,8 @@ See `LANDBOT_IMPLEMENTATION_GUIDE.md` for complete step-by-step implementation w
 ## 🧪 Step 5: Testing
 
 ### 5.1 Test Apps Script
-1. In Apps Script, run `testCiphers()` to verify all encryption works
-2. Run `createInitialPuzzle()` to add today's puzzle
+1. In Apps Script, run `refreshTodaysPuzzle()` to generate and verify today's puzzle
+2. Run `createInitialPuzzle()` if you need to set up initial data
 3. Check your Daily_Puzzles tab for data
 4. Verify Current_Puzzle tab row 2 shows today's puzzle
 
@@ -206,9 +201,9 @@ See `LANDBOT_IMPLEMENTATION_GUIDE.md` for complete step-by-step implementation w
 - Test Current_Puzzle data manually
 
 **Cipher validation failing:**
-- Run `testCiphers()` to check implementations
+- Check System_Log for specific error messages
 - Verify puzzle data in Daily_Puzzles tab
-- Check validateEncryption() function results
+- Test `applyCipher()` function manually
 
 ## 🎯 Success Metrics
 
@@ -227,7 +222,7 @@ Once running, monitor these KPIs:
 ### Weekly  
 - Review Gemini API usage (stay under quotas)
 - Analyze user engagement in Usage_Log
-- Update fallback puzzles if needed
+- Monitor Gemini API reliability metrics
 
 ### Monthly
 - Review puzzle quality and difficulty balance

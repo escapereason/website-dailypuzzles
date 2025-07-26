@@ -1,63 +1,61 @@
 /**
- * Daily Cipher Challenge System - Google Apps Script (COMPLETE REWRITE)
+ * Daily Cipher Challenge System - Google Apps Script (SIMPLIFIED REWRITE)
  * 
  * This script automatically generates daily 3-puzzle cipher sequences using Gemini AI
  * Structure: Decrypt Word → Answer Trivia → Encrypt Answer
  * 
- * NEW FEATURES:
- * - Robust Gemini API integration with multi-layer retry logic
- * - Smart fallback system with date-based rotation
- * - Progressive validation with self-healing capabilities
- * - Production-grade logging and monitoring
- * - Never fails completely - always provides fresh puzzles
+ * SIMPLIFIED DESIGN PHILOSOPHY:
+ * - Make Gemini work reliably instead of building workarounds
+ * - No fallback systems - fix the root cause instead
+ * - Clean, simple validation with clear error messages
+ * - Single prompt strategy focused on quality output
+ * - Fail fast and clearly when issues occur
  * 
  * Required Setup:
  * 1. Set GEMINI_API_KEY in Script Properties
- * 2. Create Google Sheet with 5 tabs: Daily_Puzzles, Current_Puzzle, Usage_Log, System_Log, Fallback_Puzzles
+ * 2. Create Google Sheet with 4 tabs: Daily_Puzzles, Current_Puzzle, Usage_Log, System_Log
  * 3. Run setupDailyTrigger() to enable automation
  * 4. Run createInitialPuzzle() to populate first puzzle
  * 
- * @version 2.0.0
- * @author Claude (Anthropic) - Complete System Rewrite
+ * @version 3.0.0
+ * @author Claude (Anthropic) - Simplified Gemini-Only System
  */
 
 // ================================================
 // CONFIGURATION SECTION
 // ================================================
 
-// Cipher types available for puzzle generation (8 types from easy to advanced)
-const CIPHER_TYPES = ['rot13', 'caesar_3', 'caesar_5', 'caesar_7', 'caesar_11', 'caesar_neg3', 'caesar_neg5', 'atbash'];
+// Cipher types available for puzzle generation (focused on most reliable)
+const CIPHER_TYPES = ['rot13', 'caesar_3', 'caesar_5', 'caesar_7', 'atbash', 'caesar_neg3'];
 
-// Balanced tech categories for diverse puzzle generation (reduced space bias from 25% to 10%)
+// Escape room immersive categories aligned with Reason Future Tech themes
 const CATEGORIES = [
-  'Artificial Intelligence', 'Cybersecurity', 'Space Exploration', 'Quantum Computing',
-  'Robotics', 'Cryptocurrency', 'Programming Languages', 'Neural Networks',
-  'Hardware Engineering', 'Blockchain Technology', 'Machine Learning', 'Data Science', 
-  'Cloud Computing', 'Web Development', 'Game Development', 'Biotechnology',
-  'Financial Technology', 'Internet of Things', 'Mobile Development', 'Software Engineering'
+  'Space Exploration & Astronomy', 'Artificial Intelligence & Robotics', 'Cybersecurity & Digital Defense',
+  'Time Travel & Temporal Mechanics', 'Alien Life & Extraterrestrial Contact', 'Virtual Reality & Simulation',
+  'Quantum Computing & Physics', 'Biotechnology & Genetic Engineering', 'Post-Apocalyptic Survival',
+  'Neural Networks & Brain Science'
 ];
 
-// Cipher difficulty mapping for balanced progression
-const CIPHER_DIFFICULTY = {
-  'rot13': 1, 'atbash': 1, 'caesar_3': 2, 'caesar_5': 3, 
-  'caesar_7': 3, 'caesar_11': 3, 'caesar_neg3': 4, 'caesar_neg5': 4
+// Difficulty system for puzzle generation
+const DIFFICULTY_LEVELS = {
+  2: {
+    rating: 2,
+    description: "moderate difficulty - accessible but challenging",
+    guidance: "Use mainstream terms that most people know but require some thought"
+  },
+  3: {
+    rating: 3, 
+    description: "medium difficulty - requires some knowledge",
+    guidance: "Use terms that educated adults would know but aren't everyday vocabulary"
+  }
 };
 
-// API Configuration
+// Simplified API configuration
 const API_CONFIG = {
-  MAX_RETRIES: 3,
-  BASE_DELAY: 1000,     // 1 second base delay
-  MAX_DELAY: 8000,      // 8 second max delay
-  TIMEOUT: 30000        // 30 second timeout
-};
-
-// System performance tracking
-let SYSTEM_METRICS = {
-  gemini_attempts: 0,
-  gemini_successes: 0,
-  fallback_uses: 0,
-  validation_failures: 0,
-  last_reset: new Date()
+  MODEL: 'gemini-1.5-pro',  // Stable version, not latest
+  TEMPERATURE: 0.2,         // Low for consistent JSON output
+  TIMEOUT: 30000,           // 30 second timeout
+  MAX_TOKENS: 512           // Shorter, focused responses
 };
 
 // ================================================
@@ -65,7 +63,7 @@ let SYSTEM_METRICS = {
 // ================================================
 
 /**
- * Main function that generates daily puzzle sequences with robust error handling
+ * Main function that generates daily puzzle sequences with simplified Gemini-only approach
  * Called automatically by daily trigger at 1 AM
  */
 function generateDailyPuzzleSequence() {
@@ -73,21 +71,15 @@ function generateDailyPuzzleSequence() {
   const apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
   
   if (!apiKey) {
-    logStructuredEvent('CRITICAL', 'generation_failed', null, 'GEMINI_API_KEY not found in Script Properties', {
-      action_required: 'Set API key in Project Settings → Script Properties'
-    });
+    logEvent('CRITICAL', 'generation_failed', 'GEMINI_API_KEY not found in Script Properties');
     return;
   }
   
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const puzzleSheet = ss.getSheetByName('Daily_Puzzles');
-  const systemLog = ss.getSheetByName('System_Log');
   
-  if (!puzzleSheet || !systemLog) {
-    logStructuredEvent('ERROR', 'generation_failed', null, 'Required sheets not found', {
-      missing_sheets: !puzzleSheet ? 'Daily_Puzzles' : 'System_Log',
-      action_required: 'Create required sheet tabs'
-    });
+  if (!puzzleSheet) {
+    logEvent('ERROR', 'generation_failed', 'Daily_Puzzles sheet not found');
     return;
   }
   
@@ -99,24 +91,24 @@ function generateDailyPuzzleSequence() {
   // Check if puzzle already exists for tomorrow
   const existingRow = findRowByDate(puzzleSheet, dateStr);
   if (existingRow > 1) {
-    logStructuredEvent('INFO', 'generation_skipped', dateStr, 'Puzzle already exists', {
-      existing_row: existingRow
-    });
+    logEvent('INFO', 'generation_skipped', `Puzzle already exists for ${dateStr}`);
     return;
   }
   
-  logStructuredEvent('INFO', 'generation_start', dateStr, 'Starting puzzle generation', {
-    api_key_present: !!apiKey,
-    sheet_timezone: ss.getSpreadsheetTimeZone()
-  });
+  logEvent('INFO', 'generation_start', `Starting puzzle generation for ${dateStr}`);
   
   try {
-    // Attempt robust puzzle generation with multiple fallback strategies
-    const puzzleData = generatePuzzleWithFallbacks(dateStr);
+    // Single attempt with Gemini - no fallbacks
+    const puzzleData = generatePuzzleWithGemini(dateStr);
     
-    // Write to sheet (20 columns: A-T)
+    if (!puzzleData) {
+      logEvent('ERROR', 'generation_failed', 'Gemini failed to generate valid puzzle');
+      return;
+    }
+    
+    // Write to sheet (18 columns: A-R, including new tracking columns)
     const newRow = puzzleSheet.getLastRow() + 1;
-    puzzleSheet.getRange(newRow, 1, 1, 20).setValues([[
+    puzzleSheet.getRange(newRow, 1, 1, 18).setValues([[
       dateStr,                          // A: date
       puzzleData.cipher_type,           // B: cipher_type
       puzzleData.p1_answer,             // C: p1_answer
@@ -132,11 +124,9 @@ function generateDailyPuzzleSequence() {
       puzzleData.p2_alt_answers,        // M: p2_alt_answers
       puzzleData.p3_answer,             // N: p3_answer
       puzzleData.p3_hint,               // O: p3_hint
-      puzzleData.category,              // P: category
-      CIPHER_DIFFICULTY[puzzleData.cipher_type] || 3, // Q: difficulty
-      puzzleData.source || 'gemini_api', // R: source
-      true,                             // S: validated
-      0                                 // T: usage_count
+      puzzleData.generation_category,   // P: category
+      puzzleData.generation_difficulty, // Q: difficulty
+      puzzleData.generation_timestamp   // R: generation_timestamp
     ]]);
     
     // Update Current_Puzzle tab for Landbot integration
@@ -145,176 +135,74 @@ function generateDailyPuzzleSequence() {
     const endTime = new Date();
     const duration = endTime - startTime;
     
-    logStructuredEvent('SUCCESS', 'generation_complete', dateStr, 'Puzzle generated successfully', {
-      source: puzzleData.source,
-      duration_ms: duration,
-      cipher_type: puzzleData.cipher_type,
-      category: puzzleData.category,
-      row_number: newRow
-    });
-    
-    console.log(`Generated puzzle sequence for ${dateStr} (${duration}ms)`);
+    logEvent('SUCCESS', 'generation_complete', `Puzzle generated successfully in ${duration}ms`);
     
   } catch (error) {
-    const endTime = new Date();
-    const duration = endTime - startTime;
-    
-    logStructuredEvent('ERROR', 'generation_error', dateStr, error.toString(), {
-      duration_ms: duration,
-      error_stack: error.stack,
-      system_metrics: SYSTEM_METRICS
-    });
-    
+    logEvent('ERROR', 'generation_error', `Generation failed: ${error.toString()}`);
     console.error('Error generating puzzle sequence:', error);
-    throw error; // Re-throw to ensure failure is visible in Apps Script logs
+    throw error;
   }
 }
 
-// ================================================
-// ROBUST GEMINI API INTEGRATION
-// ================================================
-
 /**
- * Generates puzzle with multi-layer fallback strategies
- * Layer 1: Gemini API with retries
- * Layer 2: Fallback_Puzzles sheet rotation
- * Layer 3: Hardcoded puzzle pool
- * Layer 4: Emergency puzzle
+ * Generates puzzle using Gemini API with simplified, focused approach
  */
-function generatePuzzleWithFallbacks(dateStr) {
-  // Layer 1: Try Gemini API with robust retry logic
-  try {
-    SYSTEM_METRICS.gemini_attempts++;
-    const geminiResult = callGeminiWithRetries(dateStr);
-    if (geminiResult) {
-      SYSTEM_METRICS.gemini_successes++;
-      logStructuredEvent('SUCCESS', 'gemini_api_success', dateStr, 'Gemini API generated puzzle', {
-        success_rate: SYSTEM_METRICS.gemini_successes / SYSTEM_METRICS.gemini_attempts
-      });
-      return { ...geminiResult, source: 'gemini_api' };
-    }
-  } catch (error) {
-    logStructuredEvent('WARNING', 'gemini_api_failed', dateStr, 'Gemini API failed, trying fallbacks', {
-      error: error.toString(),
-      gemini_success_rate: SYSTEM_METRICS.gemini_successes / SYSTEM_METRICS.gemini_attempts
-    });
-  }
-  
-  // Layer 2: Try Fallback_Puzzles sheet with smart rotation
-  try {
-    const sheetFallback = getSheetFallbackPuzzle(dateStr);
-    if (sheetFallback) {
-      SYSTEM_METRICS.fallback_uses++;
-      logStructuredEvent('INFO', 'sheet_fallback_used', dateStr, 'Using fallback from sheet', {
-        fallback_index: sheetFallback.fallback_index
-      });
-      return { ...sheetFallback, source: 'sheet_fallback' };
-    }
-  } catch (error) {
-    logStructuredEvent('WARNING', 'sheet_fallback_failed', dateStr, 'Sheet fallback failed', {
-      error: error.toString()
-    });
-  }
-  
-  // Layer 3: Use hardcoded puzzle pool with date-based selection
-  try {
-    const hardcodedFallback = getHardcodedFallbackPuzzle(dateStr);
-    SYSTEM_METRICS.fallback_uses++;
-    logStructuredEvent('WARNING', 'hardcoded_fallback_used', dateStr, 'Using hardcoded fallback puzzle', {
-      fallback_type: 'hardcoded_pool'
-    });
-    return { ...hardcodedFallback, source: 'hardcoded_fallback' };
-  } catch (error) {
-    logStructuredEvent('ERROR', 'hardcoded_fallback_failed', dateStr, 'Hardcoded fallback failed', {
-      error: error.toString()
-    });
-  }
-  
-  // Layer 4: Emergency puzzle (should never fail)
-  logStructuredEvent('CRITICAL', 'emergency_puzzle_used', dateStr, 'All fallbacks failed, using emergency puzzle', {
-    system_state: 'degraded',
-    action_required: 'Investigate system issues immediately'
-  });
-  
-  return getEmergencyPuzzle(dateStr);
-}
-
-/**
- * Calls Gemini API with sophisticated retry logic and progressive prompt simplification
- */
-function callGeminiWithRetries(dateStr) {
+function generatePuzzleWithGemini(dateStr) {
   const apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
-  const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`;
+  const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${API_CONFIG.MODEL}:generateContent?key=${apiKey}`;
   
-  // Progressive prompt strategies (complex → simple → basic)
-  const promptStrategies = [
-    () => createAdvancedPrompt(dateStr),
-    () => createSimplePrompt(dateStr),
-    () => createBasicPrompt(dateStr)
-  ];
+  // Get recent answers for uniqueness (simplified to 7 days)
+  const excludedAnswers = getRecentAnswers(7);
   
-  for (let strategyIndex = 0; strategyIndex < promptStrategies.length; strategyIndex++) {
-    const prompt = promptStrategies[strategyIndex]();
+  // Single, focused prompt - content only, no encryption
+  const promptData = createContentOnlyPrompt(dateStr, excludedAnswers);
+  const prompt = promptData.prompt;
+  
+  // Retry mechanism for anti-duplication
+  const maxRetries = 3;
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    logEvent('INFO', 'gemini_call_start', `Calling Gemini API for ${dateStr} (attempt ${attempt}/${maxRetries})`);
     
-    logStructuredEvent('INFO', 'attempting_gemini_call', dateStr, `Trying prompt strategy ${strategyIndex + 1}`, {
-      strategy: ['advanced', 'simple', 'basic'][strategyIndex],
-      attempt_number: strategyIndex + 1
-    });
-    
-    for (let attempt = 1; attempt <= API_CONFIG.MAX_RETRIES; attempt++) {
-      try {
-        const delay = Math.min(API_CONFIG.BASE_DELAY * Math.pow(2, attempt - 1), API_CONFIG.MAX_DELAY);
-        
-        if (attempt > 1) {
-          logStructuredEvent('INFO', 'retrying_gemini_call', dateStr, `Retry attempt ${attempt} after ${delay}ms delay`, {
-            strategy_index: strategyIndex,
-            attempt: attempt,
-            delay_ms: delay
-          });
-          Utilities.sleep(delay);
-        }
-        
-        const response = callGeminiAPI(apiUrl, prompt);
-        if (response) {
-          const puzzleData = extractAndValidatePuzzle(response, dateStr);
-          if (puzzleData) {
-            logStructuredEvent('SUCCESS', 'gemini_api_success', dateStr, 'Successfully generated puzzle', {
-              strategy_used: ['advanced', 'simple', 'basic'][strategyIndex],
-              attempt_number: attempt,
-              total_attempts: (strategyIndex * API_CONFIG.MAX_RETRIES) + attempt
-            });
-            return puzzleData;
-          }
-        }
-        
-      } catch (error) {
-        logStructuredEvent('WARNING', 'gemini_api_attempt_failed', dateStr, `Attempt ${attempt} failed`, {
-          strategy_index: strategyIndex,
-          attempt: attempt,
-          error: error.toString(),
-          will_retry: attempt < API_CONFIG.MAX_RETRIES
-        });
-        
-        if (attempt === API_CONFIG.MAX_RETRIES) {
-          logStructuredEvent('ERROR', 'gemini_strategy_exhausted', dateStr, `Strategy ${strategyIndex + 1} exhausted all retries`, {
-            strategy: ['advanced', 'simple', 'basic'][strategyIndex],
-            total_attempts: API_CONFIG.MAX_RETRIES
-          });
-        }
+    try {
+      // Get fresh prompt for each attempt to ensure variation
+      const currentPromptData = (attempt === 1) ? promptData : createContentOnlyPrompt(dateStr, excludedAnswers);
+      const currentPrompt = currentPromptData.prompt;
+      
+      const response = callGeminiAPI(apiUrl, currentPrompt);
+      if (!response) {
+        logEvent('WARNING', 'gemini_no_response', `Gemini API returned no response (attempt ${attempt})`);
+        continue; // Try again
+      }
+      
+      const puzzleData = parseAndValidatePuzzle(response, dateStr);
+      if (!puzzleData) {
+        logEvent('WARNING', 'gemini_invalid_puzzle', `Gemini generated invalid puzzle data (attempt ${attempt})`);
+        continue; // Try again with different prompt
+      }
+      
+      // Add generation metadata to puzzle data
+      puzzleData.generation_category = currentPromptData.category;
+      puzzleData.generation_difficulty = currentPromptData.difficulty;
+      puzzleData.generation_timestamp = currentPromptData.timestamp;
+      
+      logEvent('SUCCESS', 'gemini_success', `Gemini generated valid puzzle on attempt ${attempt} - Category: ${currentPromptData.category}, Difficulty: ${currentPromptData.difficulty}`);
+      return puzzleData;
+      
+    } catch (error) {
+      logEvent('WARNING', 'gemini_api_error', `Gemini API error on attempt ${attempt}: ${error.toString()}`);
+      if (attempt === maxRetries) {
+        logEvent('ERROR', 'gemini_all_attempts_failed', `All ${maxRetries} Gemini attempts failed`);
+        return null;
       }
     }
   }
-  
-  logStructuredEvent('ERROR', 'gemini_api_completely_failed', dateStr, 'All Gemini strategies and retries exhausted', {
-    total_strategies_tried: promptStrategies.length,
-    total_attempts: promptStrategies.length * API_CONFIG.MAX_RETRIES
-  });
   
   return null;
 }
 
 /**
- * Makes the actual API call to Gemini
+ * Makes the actual API call to Gemini with optimized settings and comprehensive logging
  */
 function callGeminiAPI(apiUrl, prompt) {
   const payload = {
@@ -322,842 +210,613 @@ function callGeminiAPI(apiUrl, prompt) {
       parts: [{ text: prompt }]
     }],
     generationConfig: {
-      temperature: 0.7,
-      topK: 40,
-      topP: 0.95,
-      maxOutputTokens: 1024,
+      temperature: API_CONFIG.TEMPERATURE,
+      topP: 0.8,
+      maxOutputTokens: API_CONFIG.MAX_TOKENS,
     }
   };
+  
+  const payloadString = JSON.stringify(payload);
+  const payloadSize = payloadString.length;
+  
+  // Log API call details
+  logEvent('DEBUG', 'gemini_api_call', `URL: ${apiUrl}, Model: ${API_CONFIG.MODEL}, Payload size: ${payloadSize} chars, Prompt length: ${prompt.length} chars`);
   
   const options = {
     method: 'POST',
     contentType: 'application/json',
-    payload: JSON.stringify(payload),
+    payload: payloadString,
     muteHttpExceptions: true,
     timeout: API_CONFIG.TIMEOUT
   };
   
+  const apiCallStart = new Date();
   const response = UrlFetchApp.fetch(apiUrl, options);
+  const apiCallEnd = new Date();
+  const apiCallDuration = apiCallEnd - apiCallStart;
+  
   const responseCode = response.getResponseCode();
   const rawResponseText = response.getContentText();
+  const responseSize = rawResponseText.length;
   
-  // Enhanced logging: Log complete raw response for debugging
-  logStructuredEvent('DEBUG', 'gemini_raw_response', null, 'Complete Gemini API response received', {
-    response_code: responseCode,
-    response_length: rawResponseText.length,
-    raw_response_full: rawResponseText,
-    response_preview: rawResponseText.substring(0, 300)
-  });
+  // Log API response details
+  logEvent('DEBUG', 'gemini_api_response', `Response code: ${responseCode}, Response size: ${responseSize} chars, Duration: ${apiCallDuration}ms`);
   
   if (responseCode === 200) {
-    const data = JSON.parse(rawResponseText);
-    if (data.candidates && data.candidates[0] && data.candidates[0].content) {
-      const extractedText = data.candidates[0].content.parts[0].text;
-      
-      // Enhanced logging: Log extracted text for comparison
-      logStructuredEvent('DEBUG', 'gemini_text_extracted', null, 'Text extracted from Gemini response', {
-        extracted_length: extractedText.length,
-        extracted_text_full: extractedText,
-        extraction_successful: true
-      });
-      
-      return extractedText;
-    } else {
-      throw new Error('Invalid response structure from Gemini API');
+    try {
+      const data = JSON.parse(rawResponseText);
+      if (data.candidates && data.candidates[0] && data.candidates[0].content) {
+        const extractedText = data.candidates[0].content.parts[0].text;
+        logEvent('SUCCESS', 'gemini_api_success', `Successfully extracted ${extractedText.length} chars from Gemini response`);
+        return extractedText;
+      } else {
+        logEvent('ERROR', 'gemini_response_structure_invalid', `Invalid response structure: ${JSON.stringify(data)}`);
+        throw new Error('Invalid response structure from Gemini API');
+      }
+    } catch (parseError) {
+      logEvent('ERROR', 'gemini_response_parse_failed', `Failed to parse response: ${parseError.toString()}, Raw response: ${rawResponseText}`);
+      throw new Error(`Failed to parse Gemini response: ${parseError.toString()}`);
     }
   } else if (responseCode === 429) {
+    logEvent('ERROR', 'gemini_rate_limited', `API quota exceeded - rate limited. Response: ${rawResponseText}`);
     throw new Error('API quota exceeded - rate limited');
   } else if (responseCode === 403) {
+    logEvent('ERROR', 'gemini_access_forbidden', `API access forbidden - check API key. Response: ${rawResponseText}`);
     throw new Error('API access forbidden - check API key');
   } else {
+    logEvent('ERROR', 'gemini_api_error', `API Error ${responseCode}: ${rawResponseText}`);
     throw new Error(`API Error: ${responseCode} - ${rawResponseText}`);
   }
 }
 
-// ================================================
-// PROGRESSIVE PROMPT STRATEGIES
-// ================================================
-
 /**
- * Creates advanced prompt with full complexity and requirements - ENHANCED FOR MAINSTREAM RECOGNITION
+ * Provides category-specific guidance and examples for escape room themes
  */
-function createAdvancedPrompt(dateStr) {
-  const category = getBalancedCategory(dateStr);
-  const cipherType = getBalancedCipher(dateStr);
-  
-  return `Create a sophisticated 3-puzzle cipher sequence for ${dateStr} in the ${category} category using ${cipherType} encryption.
-
-ADVANCED STRUCTURE:
-1. Choose a MAINSTREAM RECOGNIZABLE clue word (5-8 letters, uppercase) that most people know
-2. Create accessible trivia question that REFERENCES the clue word but has DIFFERENT answer
-3. P3 encrypts the P2 trivia answer (NOT the P1 clue word)
-4. Provide 3 progressive hints accessible to general public
-
-MAINSTREAM RECOGNITION REQUIREMENTS:
-- Use words/brands/companies that MOST PEOPLE would recognize and could reasonably guess
-- Prefer major consumer brands, household names, famous companies especially from SF Bay Area
-- Examples of GOOD choices: APPLE, GOOGLE, TESLA, AMAZON, NETFLIX, DISNEY, SPOTIFY, MICROSOFT
-- Examples of BAD choices: LORA, KUBERNETES, PYTORCH, ANSIBLE, GRAFANA (too technical/obscure)
-- SF Bay Area preference: GOOGLE (Mountain View), APPLE (Cupertino), TESLA (Palo Alto), META (Menlo Park)
-
-CIPHER SYSTEMS:
-- rot13: Each letter shifted 13 positions (A→N, B→O, etc.)
-- caesar_3: Each letter shifted 3 positions forward (A→D, B→E, etc.)
-- caesar_5: Each letter shifted 5 positions forward (A→F, B→G, etc.) 
-- caesar_7: Each letter shifted 7 positions forward (A→H, B→I, etc.)
-- caesar_11: Each letter shifted 11 positions forward (A→L, B→M, etc.)
-- caesar_neg3: Each letter shifted 3 positions backward (D→A, E→B, etc.)
-- caesar_neg5: Each letter shifted 5 positions backward (F→A, G→B, etc.)
-- atbash: Reverse alphabet (A→Z, B→Y, C→X, etc.)
-
-MAINSTREAM ACCESSIBILITY REQUIREMENTS:
-- p1_answer is mainstream recognizable word (5-8 letters, ${category} related)
-- p2_answer must be DIFFERENT from p1_answer but also mainstream recognizable
-- P2 question references P1 clue word and uses general knowledge (not expert-only)
-- p3_answer encrypts P2 answer using same cipher as P1
-- Progressive hints: Historical context → Cipher type → Exact parameter
-- Target audience: general public with basic tech awareness, not experts
-
-PROGRESSIVE HINT SYSTEM:
-- p1_hint1: Historical/contextual hint about cipher (no direct mention)
-- p1_hint2: Direct cipher type identification
-- p1_hint3: Exact shift amount or parameter
-
-EXAMPLE (${cipherType}, ${category}):
-{
-  "cipher_type": "${cipherType}",
-  "p1_answer": "GOOGLE",
-  "p1_encrypted_word": "JRRJOH",
-  "p1_hint1": "This cipher method was used by Julius Caesar in his military campaigns",
-  "p1_hint2": "This is a Caesar cipher",
-  "p1_hint3": "3",
-  "p2_question": "What popular video streaming service started as a DVD-by-mail service and is known for original shows like Stranger Things?",
-  "p2_hint1": "Originally started by Reed Hastings as a DVD rental company",
-  "p2_hint2": "Famous for binge-watching culture and red logo", 
-  "p2_hint3": "Competes with Disney+ and Hulu for streaming dominance",
-  "p2_answer": "NETFLIX",
-  "p2_alt_answers": "NETFLIX,NETFLIX STREAMING",
-  "p3_answer": "QHWIOLB",
-  "p3_hint": "Use the same 3-position forward shift to encrypt the streaming service",
-  "category": "${category}"
-}
-
-CRITICAL: Ensure p1_answer ≠ p2_answer and p3_answer = encrypted(p2_answer, cipher_type).
-MUST USE MAINSTREAM RECOGNIZABLE NAMES - test if a typical adult would know the answer.
-Generate ONLY valid JSON, no other text:`;
-}
-
-/**
- * Creates simplified prompt for retry attempts - ENHANCED FOR MAINSTREAM RECOGNITION
- */
-function createSimplePrompt(dateStr) {
-  const category = getBalancedCategory(dateStr);
-  const cipherType = getBalancedCipher(dateStr);
-  
-  return `Create a 3-puzzle cipher sequence for ${dateStr}. Use ${cipherType} cipher and ${category} theme.
-
-MAINSTREAM RECOGNITION FOCUS:
-- Use ONLY words/brands/companies that regular people know
-- Think: major brands, household names, famous companies (especially SF Bay Area)
-- GOOD examples: APPLE, GOOGLE, TESLA, AMAZON, NETFLIX, DISNEY, SPOTIFY
-- BAD examples: technical jargon, obscure terms, expert-only knowledge
-
-Structure:
-1. Decrypt a mainstream recognizable clue word (P1)
-2. Answer accessible trivia about the topic (P2) - DIFFERENT answer than P1
-3. Encrypt the trivia answer (P3)
-
-Requirements:
-- P1 and P2 must have different answers that MOST PEOPLE would recognize
-- P3 encrypts P2 answer using same cipher as P1
-- Include 3 hints accessible to general public (not experts)
-- SF Bay Area companies preferred: GOOGLE, APPLE, TESLA, META
-
-Generate only JSON format:
-{
-  "cipher_type": "${cipherType}",
-  "p1_answer": "MAINSTREAM_WORD1",
-  "p1_encrypted_word": "ENCRYPTED_WORD1",
-  "p1_hint1": "Historical hint about cipher",
-  "p1_hint2": "Cipher type identification",
-  "p1_hint3": "Exact parameter/shift",
-  "p2_question": "Accessible question about recognizable topic?",
-  "p2_hint1": "General knowledge hint",
-  "p2_hint2": "More specific accessible hint",
-  "p2_hint3": "Obvious mainstream hint",
-  "p2_answer": "MAINSTREAM_WORD2",
-  "p2_alt_answers": "MAINSTREAM_WORD2,ALTERNATIVE",
-  "p3_answer": "ENCRYPTED_WORD2",
-  "p3_hint": "Use same cipher to encrypt the answer",
-  "category": "${category}"
-}`;
-}
-
-/**
- * Creates basic prompt as last resort - ENHANCED FOR MAINSTREAM RECOGNITION
- */
-function createBasicPrompt(dateStr) {
-  const category = getBalancedCategory(dateStr);
-  const cipherType = getBalancedCipher(dateStr);
-  
-  return `Create a simple cipher puzzle for ${dateStr} in ${category} category:
-1. A MAINSTREAM RECOGNIZABLE word to decrypt (P1) - think APPLE, GOOGLE, TESLA
-2. An accessible trivia question with DIFFERENT mainstream answer (P2)
-3. Encrypt the trivia answer (P3)
-
-CRITICAL: Use ONLY words that regular people know - major brands, household names, famous companies.
-Prefer SF Bay Area companies: GOOGLE, APPLE, TESLA, META, NETFLIX, UBER.
-NO technical jargon or expert-only terms.
-
-Use ${cipherType} cipher. P1 and P2 answers must be different mainstream words.
-
-Return only JSON with these fields: cipher_type, p1_answer, p1_encrypted_word, p1_hint1, p1_hint2, p1_hint3, p2_question, p2_hint1, p2_hint2, p2_hint3, p2_answer, p2_alt_answers, p3_answer, p3_hint, category`;
-}
-
-// ================================================
-// SMART JSON EXTRACTION AND VALIDATION
-// ================================================
-
-/**
- * Extracts and validates puzzle data from Gemini response with multiple strategies
- */
-function extractAndValidatePuzzle(response, dateStr) {
-  let puzzleData = null;
-  
-  // Enhanced logging: Log incoming response for analysis
-  logStructuredEvent('DEBUG', 'puzzle_extraction_start', dateStr, 'Starting puzzle extraction from response', {
-    response_length: response.length,
-    response_full: response,
-    contains_blockchain: response.toUpperCase().includes('BLOCKCHAIN'),
-    contains_blockch: response.toUpperCase().includes('BLOCKCH'),
-    word_analysis: extractWordBoundaries(response)
-  });
-  
-  // Strategy 1: Direct JSON parse
-  try {
-    puzzleData = JSON.parse(response);
-    logStructuredEvent('INFO', 'json_extraction_success', dateStr, 'Direct JSON parse successful', {
-      strategy: 'direct_parse',
-      extracted_p1_answer: puzzleData?.p1_answer,
-      p1_answer_length: puzzleData?.p1_answer?.length
-    });
-  } catch (error) {
-    // Strategy 2: Extract from code blocks
-    try {
-      const jsonMatch = response.match(/```json\s*([\s\S]*?)\s*```/);
-      if (jsonMatch) {
-        puzzleData = JSON.parse(jsonMatch[1]);
-        logStructuredEvent('INFO', 'json_extraction_success', dateStr, 'Code block extraction successful', {
-          strategy: 'code_block_extraction',
-          extracted_p1_answer: puzzleData?.p1_answer,
-          p1_answer_length: puzzleData?.p1_answer?.length,
-          extracted_json_length: jsonMatch[1].length
-        });
+function getCategoryGuidance(category) {
+  const guidance = {
+    'Space Exploration & Astronomy': {
+      focus: 'celestial objects, space phenomena, spacecraft components, astronomical terms',
+      example: {
+        p1_answer: 'NEBULA',
+        p2_question: 'What do you call the invisible force that keeps planets in orbit around stars?',
+        p2_hint1: 'Newton discovered this fundamental force',
+        p2_hint2: 'It gets weaker with distance but never disappears',
+        p2_hint3: 'What goes up must come down because of this',
+        p2_answer: 'GRAVITY',
+        p2_alt_answers: 'GRAVITY,GRAVITATIONAL FORCE'
       }
-    } catch (error2) {
-      // Strategy 3: Find JSON object boundaries
-      try {
-        const startIndex = response.indexOf('{');
-        const endIndex = response.lastIndexOf('}');
-        if (startIndex !== -1 && endIndex !== -1 && endIndex > startIndex) {
-          const jsonString = response.substring(startIndex, endIndex + 1);
-          puzzleData = JSON.parse(jsonString);
-          logStructuredEvent('INFO', 'json_extraction_success', dateStr, 'Boundary extraction successful', {
-            strategy: 'boundary_extraction',
-            extracted_p1_answer: puzzleData?.p1_answer,
-            p1_answer_length: puzzleData?.p1_answer?.length,
-            boundary_start: startIndex,
-            boundary_end: endIndex,
-            extracted_length: endIndex - startIndex + 1
-          });
-        }
-      } catch (error3) {
-        // Strategy 4: Try to repair common JSON issues
-        try {
-          let repairedJson = response
-            .replace(/```json|```/g, '')
-            .replace(/,\s*}/g, '}')
-            .replace(/,\s*]/g, ']')
-            .trim();
-          
-          const startIndex = repairedJson.indexOf('{');
-          const endIndex = repairedJson.lastIndexOf('}');
-          if (startIndex !== -1 && endIndex !== -1) {
-            repairedJson = repairedJson.substring(startIndex, endIndex + 1);
-            puzzleData = JSON.parse(repairedJson);
-            logStructuredEvent('INFO', 'json_extraction_success', dateStr, 'JSON repair successful', {
-              strategy: 'json_repair',
-              extracted_p1_answer: puzzleData?.p1_answer,
-              p1_answer_length: puzzleData?.p1_answer?.length,
-              repair_start: startIndex,
-              repair_end: endIndex,
-              repaired_json_length: repairedJson.length
-            });
-          }
-        } catch (error4) {
-          logStructuredEvent('ERROR', 'json_extraction_failed', dateStr, 'All JSON extraction strategies failed', {
-            response_length: response.length,
-            response_full: response,
-            response_preview: response.substring(0, 300),
-            errors: [error.message, error2.message, error3.message, error4.message],
-            char_analysis: {
-              first_brace_index: response.indexOf('{'),
-              last_brace_index: response.lastIndexOf('}'),
-              contains_blockchain: response.toUpperCase().includes('BLOCKCHAIN'),
-              contains_blockch: response.toUpperCase().includes('BLOCKCH'),
-              word_boundary_analysis: extractWordBoundaries(response)
-            }
-          });
-          return null;
-        }
+    },
+    'Artificial Intelligence & Robotics': {
+      focus: 'AI concepts, algorithms, machine learning terms, robotic components',
+      example: {
+        p1_answer: 'NEURAL',
+        p2_question: 'What type of learning uses trial and error to maximize rewards?',
+        p2_hint1: 'Used to train game-playing AI systems',
+        p2_hint2: 'Learns through feedback and consequences',
+        p2_hint3: 'Like training a pet with treats and corrections',
+        p2_answer: 'REINFORCEMENT',
+        p2_alt_answers: 'REINFORCEMENT,REINFORCEMENT LEARNING'
+      }
+    },
+    'Cybersecurity & Digital Defense': {
+      focus: 'encryption methods, security concepts, hacking terms, digital protection',
+      example: {
+        p1_answer: 'FIREWALL',
+        p2_question: 'What cryptographic method uses two different keys for encoding and decoding?',
+        p2_hint1: 'One key is public, one is private',
+        p2_hint2: 'Safer than using the same key for both operations',
+        p2_hint3: 'RSA is a famous example of this system',
+        p2_answer: 'ASYMMETRIC',
+        p2_alt_answers: 'ASYMMETRIC,PUBLIC KEY'
+      }
+    },
+    'Time Travel & Temporal Mechanics': {
+      focus: 'physics concepts, temporal phenomena, science fiction terms, relativity',
+      example: {
+        p1_answer: 'PARADOX',
+        p2_question: 'What Einstein theory explains how time slows down at high speeds?',
+        p2_hint1: 'Shows that space and time are connected',
+        p2_hint2: 'Explains why GPS satellites need time corrections',
+        p2_hint3: 'E=mc² comes from this famous theory',
+        p2_answer: 'RELATIVITY',
+        p2_alt_answers: 'RELATIVITY,SPECIAL RELATIVITY'
+      }
+    },
+    'Alien Life & Extraterrestrial Contact': {
+      focus: 'exoplanets, astrobiology terms, SETI concepts, space exploration',
+      example: {
+        p1_answer: 'SIGNAL',
+        p2_question: 'What zone around a star could support liquid water on planets?',
+        p2_hint1: 'Not too hot, not too cold for life',
+        p2_hint2: 'Also called the habitable zone',
+        p2_hint3: 'Named after a fairy tale character',
+        p2_answer: 'GOLDILOCKS',
+        p2_alt_answers: 'GOLDILOCKS,HABITABLE ZONE'
+      }
+    },
+    'Virtual Reality & Simulation': {
+      focus: 'VR/AR technology, simulation concepts, immersive tech terms',
+      example: {
+        p1_answer: 'AVATAR',
+        p2_question: 'What describes computer graphics that look completely realistic?',
+        p2_hint1: 'Graphics so good they fool the eye',
+        p2_hint2: 'Used in high-end movies and games',
+        p2_hint3: 'Means lifelike computer imagery',
+        p2_answer: 'PHOTOREALISTIC',
+        p2_alt_answers: 'PHOTOREALISTIC,REALISTIC'
+      }
+    },
+    'Quantum Computing & Physics': {
+      focus: 'quantum phenomena, physics principles, computing concepts',
+      example: {
+        p1_answer: 'QUBIT',
+        p2_question: 'What quantum phenomenon allows particles to be in multiple states?',
+        p2_hint1: 'Schrödinger\'s cat demonstrates this concept',
+        p2_hint2: 'Particles exist in all possible states until measured',
+        p2_hint3: 'Key principle that makes quantum computing powerful',
+        p2_answer: 'SUPERPOSITION',
+        p2_alt_answers: 'SUPERPOSITION,QUANTUM SUPERPOSITION'
+      }
+    },
+    'Biotechnology & Genetic Engineering': {
+      focus: 'genetic terms, biotechnology concepts, medical innovations',
+      example: {
+        p1_answer: 'GENOME',
+        p2_question: 'What gene-editing technique uses molecular scissors?',
+        p2_hint1: 'Revolutionary tool for modifying DNA',
+        p2_hint2: 'Won the Nobel Prize in Chemistry',
+        p2_hint3: 'Acronym sounds like a breakfast cereal',
+        p2_answer: 'CRISPR',
+        p2_alt_answers: 'CRISPR,CRISPR CAS9'
+      }
+    },
+    'Post-Apocalyptic Survival': {
+      focus: 'survival concepts, resource management, disaster preparedness',
+      example: {
+        p1_answer: 'BUNKER',
+        p2_question: 'What type of energy doesn\'t depend on the electrical grid?',
+        p2_hint1: 'Generated by panels that face the sun',
+        p2_hint2: 'Clean energy that never runs out',
+        p2_hint3: 'Powers calculators and space stations',
+        p2_answer: 'SOLAR',
+        p2_alt_answers: 'SOLAR,SOLAR POWER'
+      }
+    },
+    'Neural Networks & Brain Science': {
+      focus: 'neuroscience terms, brain concepts, cognitive science',
+      example: {
+        p1_answer: 'SYNAPSE',
+        p2_question: 'What brain chemical is associated with happiness and reward?',
+        p2_hint1: 'Released when you accomplish goals',
+        p2_hint2: 'Also involved in addiction pathways',
+        p2_hint3: 'Parkinson\'s disease affects this neurotransmitter',
+        p2_answer: 'DOPAMINE',
+        p2_alt_answers: 'DOPAMINE,DOPAMINE NEUROTRANSMITTER'
       }
     }
-  }
-  
-  if (!puzzleData) {
-    return null;
-  }
-  
-  // Progressive validation with self-healing
-  return validateAndHealPuzzle(puzzleData, dateStr);
-}
-
-/**
- * Progressive validation with self-healing capabilities
- */
-function validateAndHealPuzzle(puzzleData, dateStr) {
-  const validationResults = {
-    structure_valid: false,
-    encryption_valid: false,
-    content_valid: false,
-    healing_applied: []
   };
   
-  // Phase 1: Structure validation and healing
-  try {
-    if (!validatePuzzleStructure(puzzleData)) {
-      puzzleData = healPuzzleStructure(puzzleData);
-      validationResults.healing_applied.push('structure_healing');
+  return guidance[category] || {
+    focus: 'scientific concepts, phenomena, and technical terms',
+    example: {
+      p1_answer: 'SYSTEM',
+      p2_question: 'What do you call the building blocks of all matter?',
+      p2_hint1: 'Everything is made of these tiny particles',
+      p2_hint2: 'They combine to form molecules',
+      p2_hint3: 'Oxygen and hydrogen are examples',
+      p2_answer: 'ATOMS',
+      p2_alt_answers: 'ATOMS,ATOMIC PARTICLES'
     }
-    validationResults.structure_valid = true;
-  } catch (error) {
-    logStructuredEvent('WARNING', 'structure_validation_failed', dateStr, 'Puzzle structure invalid', {
-      error: error.toString(),
-      puzzle_keys: Object.keys(puzzleData)
-    });
-    SYSTEM_METRICS.validation_failures++;
-    return null;
-  }
-  
-  // Phase 2: Encryption validation and healing
-  try {
-    if (!validateEncryptionLogic(puzzleData)) {
-      puzzleData = healEncryptionIssues(puzzleData);
-      validationResults.healing_applied.push('encryption_healing');
-    }
-    validationResults.encryption_valid = true;
-  } catch (error) {
-    logStructuredEvent('WARNING', 'encryption_validation_failed', dateStr, 'Encryption validation failed', {
-      error: error.toString(),
-      cipher_type: puzzleData.cipher_type,
-      p1_answer: puzzleData.p1_answer,
-      p2_answer: puzzleData.p2_answer
-    });
-    SYSTEM_METRICS.validation_failures++;
-    return null;
-  }
-  
-  // Phase 3: Content quality validation
-  try {
-    if (!validateContentQuality(puzzleData)) {
-      logStructuredEvent('WARNING', 'content_quality_low', dateStr, 'Content quality concerns', {
-        issues: getContentQualityIssues(puzzleData)
-      });
-      // Continue with low quality content rather than failing completely
-    }
-    validationResults.content_valid = true;
-  } catch (error) {
-    logStructuredEvent('WARNING', 'content_validation_error', dateStr, 'Content validation error', {
-      error: error.toString()
-    });
-  }
-  
-  if (validationResults.healing_applied.length > 0) {
-    logStructuredEvent('INFO', 'puzzle_healing_applied', dateStr, 'Puzzle successfully healed', {
-      healing_methods: validationResults.healing_applied,
-      final_validation: validationResults
-    });
-  }
-  
-  return puzzleData;
+  };
 }
 
-// ================================================
-// VALIDATION HELPER FUNCTIONS
-// ================================================
+/**
+ * Creates simplified prompt focused on content generation only - NO ENCRYPTION
+ * Returns object with prompt and metadata for database storage
+ */
+function createContentOnlyPrompt(dateStr, excludedAnswers) {
+  const category = getRandomCategory();
+  const difficulty = getRandomDifficulty();
+  const exclusionText = createExclusionText(excludedAnswers);
+  const categoryGuidance = getCategoryGuidance(category);
+  const difficultyInfo = DIFFICULTY_LEVELS[difficulty];
+  const timestamp = new Date().toISOString();
+  
+  const variationSeed = Math.floor(Math.random() * 1000);
+  const promptVariations = [
+    "Create fresh puzzle content",
+    "Generate unique puzzle content", 
+    "Develop original puzzle content",
+    "Build new puzzle content"
+  ];
+  const selectedVariation = promptVariations[variationSeed % promptVariations.length];
+  
+  const prompt = `${selectedVariation} for ${dateStr} in ${category} category.${exclusionText}
+
+GENERATION PARAMETERS:
+- Session ID: ${variationSeed}
+- Difficulty Level: ${difficulty} (${difficultyInfo.description})
+- Category Focus: ${category}
+- Generation Time: ${timestamp}
+- Variation Seed: ${variationSeed}
+- Difficulty Guidance: ${difficultyInfo.guidance}
+
+STRICT REQUIREMENTS:
+1. p1_answer: Mainstream word (5-8 letters, ${category} related) that people know
+2. p2_question: Trivia question about DIFFERENT word than p1_answer  
+3. p2_answer: DIFFERENT from p1_answer, also mainstream recognizable
+4. All hints should be accessible to general public
+5. p1_answer ≠ p2_answer (MUST be different words)
+
+CRITICAL - ABSOLUTELY NO COMPANY NAMES:
+- FORBIDDEN: Company names, brand names, corporate entities
+- EXAMPLES TO AVOID: Google, Apple, Tesla, Meta, Amazon, Microsoft, etc.
+- REQUIRED: ${categoryGuidance.focus}
+- USE: Scientific concepts, phenomena, technical terms, natural objects
+
+CONTENT VARIETY REQUIREMENTS:
+- Generate content that is DIFFERENT from the provided example
+- Use alternative concepts within the ${category} theme
+- Ensure answers are NOT identical to example answers
+- Focus on DIFFERENT ${categoryGuidance.focus} than shown in example
+
+REFERENCE EXAMPLE (DO NOT COPY - create different content):
+{
+  "p1_answer": "${categoryGuidance.example.p1_answer}",
+  "p2_question": "${categoryGuidance.example.p2_question}",
+  "p2_answer": "${categoryGuidance.example.p2_answer}",
+  "p2_alt_answers": "${categoryGuidance.example.p2_alt_answers}"
+}
+
+Generate ONLY valid JSON with this exact structure, using DIFFERENT content than the example:
+{
+  "p1_answer": "YOUR_UNIQUE_WORD",
+  "p2_question": "Your unique trivia question here",
+  "p2_hint1": "First hint for trivia",
+  "p2_hint2": "Second hint for trivia", 
+  "p2_hint3": "Third hint for trivia",
+  "p2_answer": "YOUR_DIFFERENT_ANSWER",
+  "p2_alt_answers": "ALTERNATIVE1,ALTERNATIVE2"
+}`;
+
+  logEvent('DEBUG', 'prompt_variation', `Using variation: "${selectedVariation}", Seed: ${variationSeed}, Category: ${category}, Difficulty: ${difficulty}`);
+
+  return {
+    prompt: prompt,
+    category: category,
+    difficulty: difficulty,
+    timestamp: timestamp
+  };
+}
 
 /**
- * Validates basic puzzle structure
+ * Parses Gemini content and adds encryption automatically
  */
-function validatePuzzleStructure(puzzle) {
-  const requiredFields = [
-    'cipher_type', 'p1_answer', 'p1_encrypted_word', 'p1_hint1', 'p1_hint2', 'p1_hint3',
-    'p2_question', 'p2_hint1', 'p2_hint2', 'p2_hint3', 'p2_answer', 'p2_alt_answers',
-    'p3_answer', 'p3_hint', 'category'
-  ];
+function parseAndValidatePuzzle(response, dateStr) {
+  // Enhanced logging - log full response for debugging
+  logEvent('INFO', 'gemini_response_received', `Full Gemini response: ${response}`);
+  
+  let contentData;
+  
+  // Parse the simplified JSON structure from Gemini
+  try {
+    // Remove potential markdown formatting
+    const cleanResponse = response.replace(/```json|```/g, '').trim();
+    contentData = JSON.parse(cleanResponse);
+    logEvent('SUCCESS', 'json_parse_success', 'Successfully parsed Gemini JSON response');
+  } catch (error) {
+    logEvent('ERROR', 'json_parse_failed', `JSON parsing failed: ${error.toString()}`);
+    return null;
+  }
+  
+  // Validate basic content structure (simplified - no encryption fields)
+  const requiredFields = ['p1_answer', 'p2_question', 'p2_hint1', 'p2_hint2', 'p2_hint3', 'p2_answer', 'p2_alt_answers'];
   
   for (const field of requiredFields) {
-    if (!puzzle[field] || typeof puzzle[field] !== 'string') {
-      return false;
+    if (!contentData[field] || contentData[field].toString().trim() === '') {
+      logEvent('ERROR', 'missing_field', `Missing required field: ${field}`);
+      return null;
     }
   }
   
-  return CIPHER_TYPES.includes(puzzle.cipher_type);
+  // Validate p1 and p2 answers are different
+  if (contentData.p1_answer.toUpperCase() === contentData.p2_answer.toUpperCase()) {
+    logEvent('ERROR', 'duplicate_answers', `p1_answer "${contentData.p1_answer}" and p2_answer "${contentData.p2_answer}" must be different`);
+    return null;
+  }
+  
+  // Check against recent answers to prevent duplicates
+  const recentAnswers = getRecentAnswers(7);
+  if (recentAnswers.has(contentData.p1_answer.toUpperCase()) || recentAnswers.has(contentData.p2_answer.toUpperCase())) {
+    logEvent('WARNING', 'recent_duplicate_detected', `Generated answers "${contentData.p1_answer}" or "${contentData.p2_answer}" match recent puzzles`);
+    return null; // Force regeneration with different prompt
+  }
+  
+  // NOW ADD ALL ENCRYPTION AUTOMATICALLY
+  const cipherType = getRandomCipher();
+  logEvent('INFO', 'cipher_selected', `Randomly selected cipher: ${cipherType}`);
+  
+  try {
+    // Encrypt p1_answer to create the puzzle word to decrypt
+    const p1_encrypted_word = applyCipher(contentData.p1_answer, cipherType);
+    logEvent('SUCCESS', 'p1_encryption', `${contentData.p1_answer} → ${p1_encrypted_word} using ${cipherType}`);
+    
+    // Encrypt p2_answer to create the final puzzle answer
+    const p3_answer = applyCipher(contentData.p2_answer, cipherType);
+    logEvent('SUCCESS', 'p3_encryption', `${contentData.p2_answer} → ${p3_answer} using ${cipherType}`);
+    
+    // Auto-generate cipher hints based on cipher type
+    const cipherHints = generateCipherHints(cipherType);
+    
+    // Build complete puzzle with all encryption added
+    const completePuzzle = {
+      cipher_type: cipherType,
+      p1_answer: contentData.p1_answer.toUpperCase(),
+      p1_encrypted_word: p1_encrypted_word,
+      p1_hint1: cipherHints.hint1,
+      p1_hint2: cipherHints.hint2,
+      p1_hint3: cipherHints.hint3,
+      p2_question: contentData.p2_question,
+      p2_hint1: contentData.p2_hint1,
+      p2_hint2: contentData.p2_hint2,
+      p2_hint3: contentData.p2_hint3,
+      p2_answer: contentData.p2_answer.toUpperCase(),
+      p2_alt_answers: contentData.p2_alt_answers.toUpperCase(),
+      p3_answer: p3_answer,
+      p3_hint: `Use the same ${cipherType} encryption to encrypt "${contentData.p2_answer}"`
+    };
+    
+    logEvent('SUCCESS', 'puzzle_complete', `Complete puzzle generated with ${cipherType} encryption`);
+    return completePuzzle;
+    
+  } catch (error) {
+    logEvent('ERROR', 'encryption_failed', `Encryption failed: ${error.toString()}`);
+    return null;
+  }
 }
 
 /**
- * Validates encryption logic
- */
-function validateEncryptionLogic(puzzle) {
-  const { cipher_type, p1_answer, p1_encrypted_word, p2_answer, p3_answer } = puzzle;
-  
-  // Requirement 1: P1 and P2 must have different answers
-  if (p1_answer.toUpperCase() === p2_answer.toUpperCase()) {
-    return false;
-  }
-  
-  // Requirement 2: P1 encryption must be correct
-  const expectedP1Encrypted = applyCipher(p1_answer, cipher_type);
-  if (p1_encrypted_word.toUpperCase() !== expectedP1Encrypted.toUpperCase()) {
-    return false;
-  }
-  
-  // Requirement 3: P3 must encrypt P2 answer correctly
-  const expectedP3Answer = applyCipher(p2_answer, cipher_type);
-  if (p3_answer.toUpperCase() !== expectedP3Answer.toUpperCase()) {
-    return false;
-  }
-  
-  return true;
-}
-
-/**
- * Validates content quality - ENHANCED WITH MAINSTREAM RECOGNITION VALIDATION
- */
-function validateContentQuality(puzzle) {
-  // Check for appropriate length
-  if (puzzle.p1_answer.length < 3 || puzzle.p1_answer.length > 12) return false;
-  if (puzzle.p2_answer.length < 3 || puzzle.p2_answer.length > 20) return false;
-  
-  // Check for reasonable question length
-  if (puzzle.p2_question.length < 20 || puzzle.p2_question.length > 200) return false;
-  
-  // Check for hint progression
-  if (puzzle.p1_hint1.length < 10 || puzzle.p2_hint1.length < 10) return false;
-  
-  // ENHANCED: Mainstream recognition validation
-  if (!isMainstreamRecognizable(puzzle.p1_answer)) return false;
-  if (!isMainstreamRecognizable(puzzle.p2_answer)) return false;
-  
-  return true;
-}
-
-/**
- * Enhanced function to validate if a term is mainstream recognizable
- */
-function isMainstreamRecognizable(term) {
-  const upperTerm = term.toUpperCase();
-  
-  // SF Bay Area companies (PREFERRED)
-  const sfBayAreaCompanies = [
-    'GOOGLE', 'APPLE', 'TESLA', 'META', 'FACEBOOK', 'NETFLIX', 'UBER', 'LYFT',
-    'AIRBNB', 'TWITTER', 'ADOBE', 'SALESFORCE', 'INTEL', 'CISCO', 'ORACLE'
-  ];
-  
-  // Major mainstream brands and companies
-  const mainstreamBrands = [
-    'AMAZON', 'MICROSOFT', 'DISNEY', 'SPOTIFY', 'YOUTUBE', 'INSTAGRAM', 'TIKTOK',
-    'WALMART', 'TARGET', 'STARBUCKS', 'MCDONALDS', 'COSTCO', 'SAMSUNG', 'SONY',
-    'NIKE', 'ADIDAS', 'PEPSI', 'COCACOLA', 'VISA', 'MASTERCARD', 'PAYPAL'
-  ];
-  
-  // Common tech terms that general public knows
-  const commonTechTerms = [
-    'INTERNET', 'COMPUTER', 'MOBILE', 'PHONE', 'EMAIL', 'WEBSITE', 'BROWSER',
-    'LAPTOP', 'TABLET', 'DESKTOP', 'KEYBOARD', 'MOUSE', 'SCREEN', 'CAMERA'
-  ];
-  
-  // General knowledge terms
-  const generalTerms = [
-    'MUSIC', 'MOVIE', 'VIDEO', 'PHOTO', 'GAME', 'BOOK', 'NEWS', 'SPORTS',
-    'WEATHER', 'TRAVEL', 'FOOD', 'HEALTH', 'MONEY', 'CAR', 'HOME'
-  ];
-  
-  // Check if term is in any mainstream category
-  if (sfBayAreaCompanies.includes(upperTerm)) return true;
-  if (mainstreamBrands.includes(upperTerm)) return true;
-  if (commonTechTerms.includes(upperTerm)) return true;
-  if (generalTerms.includes(upperTerm)) return true;
-  
-  // Technical jargon that should be REJECTED
-  const technicalJargon = [
-    'LORA', 'LORAWAN', 'KUBERNETES', 'ANSIBLE', 'GRAFANA', 'PYTORCH', 'TENSORFLOW',
-    'HADOOP', 'APACHE', 'NGINX', 'REDIS', 'MONGODB', 'POSTGRESQL', 'MYSQL',
-    'JENKINS', 'GITLAB', 'BITBUCKET', 'JIRA', 'CONFLUENCE', 'KUBERNETES',
-    'DOCKER', 'MICROSERVICE', 'API', 'SDK', 'JSON', 'XML', 'HTTP', 'HTTPS',
-    'CSS', 'HTML', 'JAVASCRIPT', 'PYTHON', 'JAVA', 'GOLANG', 'RUST', 'SCALA'
-  ];
-  
-  // Reject technical jargon
-  if (technicalJargon.includes(upperTerm)) return false;
-  
-  // If not explicitly approved or rejected, apply heuristics
-  // Short terms (3-4 letters) are often abbreviations - be careful
-  if (upperTerm.length <= 4) {
-    // Only allow if it's a very common abbreviation
-    const commonAbbrevs = ['NASA', 'FBI', 'CIA', 'DVD', 'GPS', 'USB', 'WIFI', 'TV'];
-    return commonAbbrevs.includes(upperTerm);
-  }
-  
-  // For longer terms, be more permissive but still cautious
-  // If it contains common word patterns, it might be okay
-  const commonWordParts = ['TECH', 'SOFT', 'HARD', 'NET', 'WEB', 'DIGITAL', 'SMART'];
-  const hasCommonPart = commonWordParts.some(part => upperTerm.includes(part));
-  
-  // Default to cautious - if we're not sure, it's probably not mainstream enough
-  return hasCommonPart;
-}
-
-/**
- * Heals puzzle structure issues
- */
-function healPuzzleStructure(puzzle) {
-  const healed = { ...puzzle };
-  
-  // Fill missing fields with defaults
-  if (!healed.cipher_type || !CIPHER_TYPES.includes(healed.cipher_type)) {
-    healed.cipher_type = 'caesar_3';
-  }
-  
-  if (!healed.category) {
-    healed.category = 'general';
-  }
-  
-  // Ensure all fields are strings
-  Object.keys(healed).forEach(key => {
-    if (typeof healed[key] !== 'string') {
-      healed[key] = String(healed[key] || '');
-    }
-  });
-  
-  return healed;
-}
-
-/**
- * Heals encryption issues
- */
-function healEncryptionIssues(puzzle) {
-  const healed = { ...puzzle };
-  
-  // Fix P1 encryption if incorrect
-  const expectedP1Encrypted = applyCipher(healed.p1_answer, healed.cipher_type);
-  healed.p1_encrypted_word = expectedP1Encrypted;
-  
-  // Fix P3 encryption (should encrypt P2 answer)
-  const expectedP3Answer = applyCipher(healed.p2_answer, healed.cipher_type);
-  healed.p3_answer = expectedP3Answer;
-  
-  return healed;
-}
-
-/**
- * Gets content quality issues for logging
- */
-function getContentQualityIssues(puzzle) {
-  const issues = [];
-  
-  if (puzzle.p1_answer.length < 3 || puzzle.p1_answer.length > 12) {
-    issues.push('p1_answer_length_inappropriate');
-  }
-  
-  if (puzzle.p2_question.length < 20) {
-    issues.push('p2_question_too_short');
-  }
-  
-  if (puzzle.p2_question.length > 200) {
-    issues.push('p2_question_too_long');
-  }
-  
-  return issues;
-}
-
-// ================================================
-// CIPHER IMPLEMENTATION
-// ================================================
-
-/**
- * Applies cipher encryption to a word with enhanced error handling
+ * Applies cipher encryption to a word - SIMPLIFIED VERSION
  */
 function applyCipher(word, cipherType) {
   if (!word || typeof word !== 'string') {
     throw new Error('Invalid word for cipher application');
   }
   
-  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  const upperWord = word.toUpperCase();
   let result = '';
   
-  for (let i = 0; i < word.length; i++) {
-    const char = word[i].toUpperCase();
-    if (!alphabet.includes(char)) {
-      result += char; // Keep non-letters unchanged
-      continue;
+  for (let i = 0; i < upperWord.length; i++) {
+    const char = upperWord[i];
+    if (char >= 'A' && char <= 'Z') {
+      const charCode = char.charCodeAt(0) - 65; // A=0, B=1, etc.
+      let newCharCode;
+      
+      switch (cipherType) {
+        case 'rot13':
+          newCharCode = (charCode + 13) % 26;
+          break;
+        case 'caesar_3':
+          newCharCode = (charCode + 3) % 26;
+          break;
+        case 'caesar_5':
+          newCharCode = (charCode + 5) % 26;
+          break;
+        case 'caesar_7':
+          newCharCode = (charCode + 7) % 26;
+          break;
+        case 'caesar_neg3':
+          newCharCode = (charCode - 3 + 26) % 26;
+          break;
+        case 'atbash':
+          newCharCode = 25 - charCode; // A=25, B=24, etc.
+          break;
+        default:
+          throw new Error(`Unknown cipher type: ${cipherType}`);
+      }
+      
+      result += String.fromCharCode(newCharCode + 65);
+    } else {
+      result += char; // Keep non-alphabetic characters as-is
     }
-    
-    const index = alphabet.indexOf(char);
-    let newIndex;
-    
-    switch (cipherType) {
-      case 'rot13':
-        newIndex = (index + 13) % 26;
-        break;
-      case 'atbash':
-        newIndex = 25 - index;
-        break;
-      case 'caesar_3':
-        newIndex = (index + 3) % 26;
-        break;
-      case 'caesar_5':
-        newIndex = (index + 5) % 26;
-        break;
-      case 'caesar_7':
-        newIndex = (index + 7) % 26;
-        break;
-      case 'caesar_11':
-        newIndex = (index + 11) % 26;
-        break;
-      case 'caesar_neg3':
-        newIndex = (index - 3 + 26) % 26;
-        break;
-      case 'caesar_neg5':
-        newIndex = (index - 5 + 26) % 26;
-        break;
-      default:
-        throw new Error(`Unknown cipher type: ${cipherType}`);
-    }
-    
-    result += alphabet[newIndex];
   }
   
   return result;
 }
 
-// ================================================
-// SMART FALLBACK SYSTEM
-// ================================================
-
 /**
- * Gets fallback puzzle from sheet with smart rotation
+ * Generates appropriate cipher hints based on cipher type
  */
-function getSheetFallbackPuzzle(dateStr) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const fallbackSheet = ss.getSheetByName('Fallback_Puzzles');
-  
-  if (!fallbackSheet) {
-    throw new Error('Fallback_Puzzles sheet not found');
-  }
-  
-  const data = fallbackSheet.getDataRange().getValues();
-  if (data.length <= 1) {
-    throw new Error('No fallback puzzles available in sheet');
-  }
-  
-  // Use date-based deterministic selection to ensure same puzzle for same date
-  const dateHash = hashDateString(dateStr);
-  const fallbackIndex = (dateHash % (data.length - 1)) + 1; // Skip header row
-  const fallbackRow = data[fallbackIndex];
-  
-  return {
-    cipher_type: fallbackRow[1] || 'caesar_3',
-    p1_answer: fallbackRow[2] || 'FALLBACK',
-    p1_encrypted_word: fallbackRow[3] || 'IDOOEDFN',
-    p1_hint1: fallbackRow[4] || 'This is a fallback cipher hint',
-    p1_hint2: fallbackRow[5] || 'This is a Caesar cipher',
-    p1_hint3: fallbackRow[6] || '3',
-    p2_question: fallbackRow[7] || 'What do you call a backup solution?',
-    p2_hint1: fallbackRow[8] || 'Used when primary systems fail',
-    p2_hint2: fallbackRow[9] || 'Emergency backup procedure',
-    p2_hint3: fallbackRow[10] || 'Contingency plan activation',
-    p2_answer: fallbackRow[11] || 'BACKUP',
-    p2_alt_answers: fallbackRow[12] || 'BACKUP,FALLBACK,CONTINGENCY',
-    p3_answer: fallbackRow[13] || 'EDFNXS',
-    p3_hint: fallbackRow[14] || 'Use the same cipher method',
-    category: fallbackRow[15] || 'general',
-    fallback_index: fallbackIndex
-  };
-}
-
-/**
- * Gets hardcoded fallback puzzle with variety
- */
-function getHardcodedFallbackPuzzle(dateStr) {
-  const fallbackPool = [
-    {
-      cipher_type: "caesar_3",
-      p1_answer: "ROVER",
-      p1_encrypted_word: "URYHU",
-      p1_hint1: "This cipher method was used by Julius Caesar in his military campaigns",
-      p1_hint2: "This is a Caesar cipher",
-      p1_hint3: "3",
-      p2_question: "How many rovers has NASA successfully operated on Mars?",
-      p2_hint1: "This includes Sojourner, Spirit, Opportunity, Curiosity, and Perseverance",
-      p2_hint2: "The number equals the fingers on one human hand",
-      p2_hint3: "Perseverance landed in 2021, making this the current total",
-      p2_answer: "FIVE",
-      p2_alt_answers: "FIVE,5,FIVE ROVERS",
-      p3_answer: "ILYH",
-      p3_hint: "Apply the same 3-position forward shift to encrypt the number",
-      category: "space exploration"
+function generateCipherHints(cipherType) {
+  const hintTemplates = {
+    'rot13': {
+      hint1: 'This cipher method replaces each letter with the letter 13 positions ahead in the alphabet',
+      hint2: 'ROT13 cipher - rotate each letter 13 positions',
+      hint3: 'Shift each letter exactly 13 positions forward (A→N, B→O, etc.)'
     },
-    {
-      cipher_type: "rot13",
-      p1_answer: "QUANTUM",
-      p1_encrypted_word: "DHNAGBZ",
-      p1_hint1: "This cipher was popularized in online forums and early internet culture",
-      p1_hint2: "This is a rotation cipher",
-      p1_hint3: "13",
-      p2_question: "What phenomenon allows quantum computers to process multiple states simultaneously?",
-      p2_hint1: "This principle enables qubits to exist in multiple states until measured",
-      p2_hint2: "Einstein called it 'spooky action at a distance'",
-      p2_hint3: "Schrödinger's cat demonstrates this quantum mechanical principle",
-      p2_answer: "SUPERPOSITION",
-      p2_alt_answers: "SUPERPOSITION,QUANTUM SUPERPOSITION",
-      p3_answer: "FHCRECBFVGVBA",
-      p3_hint: "Use the same 13-position shift to encrypt the quantum principle",
-      category: "quantum computing"
+    'caesar_3': {
+      hint1: 'This cipher method was used by Julius Caesar in his military campaigns',
+      hint2: 'Caesar cipher - shift each letter forward',
+      hint3: 'Shift each letter exactly 3 positions forward (A→D, B→E, etc.)'
     },
-    {
-      cipher_type: "atbash",
-      p1_answer: "NEURAL",
-      p1_encrypted_word: "MVFIZO",
-      p1_hint1: "This ancient cipher was used in Hebrew biblical texts and manuscripts",
-      p1_hint2: "This uses alphabet reversal (Atbash)",
-      p1_hint3: "A↔Z, B↔Y, C↔X",
-      p2_question: "What machine learning architecture mimics the human brain?",
-      p2_hint1: "These systems learn through weighted connections and backpropagation",
-      p2_hint2: "Deep versions of these power ChatGPT and image recognition",
-      p2_hint3: "Has layers of interconnected nodes like biological neurons",
-      p2_answer: "NETWORKS",
-      p2_alt_answers: "NETWORKS,NEURAL NETWORKS,ARTIFICIAL NEURAL NETWORKS",
-      p3_answer: "MVGDLIPH",
-      p3_hint: "Use the same mirror alphabet to encrypt the AI architecture",
-      category: "artificial intelligence"
+    'caesar_5': {
+      hint1: 'Ancient Roman military encryption technique with a fixed shift pattern',
+      hint2: 'Caesar cipher with a moderate shift amount',
+      hint3: 'Shift each letter exactly 5 positions forward (A→F, B→G, etc.)'
     },
-    {
-      cipher_type: "caesar_5",
-      p1_answer: "BLOCKCHAIN",
-      p1_encrypted_word: "GQTHNPMNDS",
-      p1_hint1: "This cipher method was used by Julius Caesar in his military campaigns",
-      p1_hint2: "This is a Caesar cipher",
-      p1_hint3: "5",
-      p2_question: "What cryptocurrency uses proof-of-work consensus and has a 21 million coin limit?",
-      p2_hint1: "Created by the pseudonymous Satoshi Nakamoto in 2009",
-      p2_hint2: "Miners solve cryptographic puzzles to validate transactions",
-      p2_hint3: "Often called 'digital gold' and trades with symbol BTC",
-      p2_answer: "BITCOIN",
-      p2_alt_answers: "BITCOIN,BTC",
-      p3_answer: "GNYHTNS",
-      p3_hint: "Use the same 5-position forward shift to encrypt the cryptocurrency",
-      category: "cryptocurrency"
+    'caesar_7': {
+      hint1: 'Classical substitution cipher used for military communications',
+      hint2: 'Caesar cipher with a larger shift amount',
+      hint3: 'Shift each letter exactly 7 positions forward (A→H, B→I, etc.)'
     },
-    {
-      cipher_type: "caesar_7",
-      p1_answer: "APOLLO",
-      p1_encrypted_word: "HWVSSV",
-      p1_hint1: "This cipher method was used by Julius Caesar in his military campaigns",
-      p1_hint2: "This is a Caesar cipher",
-      p1_hint3: "7",
-      p2_question: "What programming language powers most modern AI frameworks including TensorFlow and PyTorch?",
-      p2_hint1: "Created by Guido van Rossum with philosophy of readable code",
-      p2_hint2: "Named after a British comedy troupe, not the reptile",
-      p2_hint3: "Uses indentation for code blocks and .py file extension",
-      p2_answer: "PYTHON",
-      p2_alt_answers: "PYTHON,PYTHON LANGUAGE,PYTHON PROGRAMMING",
-      p3_answer: "WFAOVU",
-      p3_hint: "Use the same 7-position forward shift to encrypt the programming language",
-      category: "programming languages"
+    'caesar_11': {
+      hint1: 'Roman encryption method with a significant letter displacement',
+      hint2: 'Caesar cipher with a high shift value',
+      hint3: 'Shift each letter exactly 11 positions forward (A→L, B→M, etc.)'
     },
-    {
-      cipher_type: "caesar_neg3",
-      p1_answer: "DATABASE",
-      p1_encrypted_word: "AXQXYZPB",
-      p1_hint1: "This cipher method was used by Julius Caesar in his military campaigns",
-      p1_hint2: "This is a Caesar cipher shifting backward",
-      p1_hint3: "3",
-      p2_question: "What popular JavaScript runtime allows you to run JavaScript outside of web browsers?",
-      p2_hint1: "Built on Chrome's V8 JavaScript engine for server-side development",
-      p2_hint2: "Uses npm as its default package manager",
-      p2_hint3: "Created by Ryan Dahl and commonly used for backend web development",
-      p2_answer: "NODEJS",
-      p2_alt_answers: "NODEJS,NODE.JS,NODE JS,NODE",
-      p3_answer: "KLABEO",
-      p3_hint: "Use the same 3-position backward shift to encrypt the runtime",
-      category: "web development"
+    'caesar_neg3': {
+      hint1: 'Like Caesar cipher but shifts letters in the opposite direction',
+      hint2: 'Reverse Caesar cipher - shift letters backward',
+      hint3: 'Shift each letter exactly 3 positions backward (D→A, E→B, etc.)'
+    },
+    'caesar_neg5': {
+      hint1: 'Ancient cipher technique using backward letter substitution',
+      hint2: 'Reverse Caesar cipher with moderate backward shift',
+      hint3: 'Shift each letter exactly 5 positions backward (F→A, G→B, etc.)'
+    },
+    'atbash': {
+      hint1: 'Ancient Hebrew cipher where the alphabet is reversed',
+      hint2: 'Atbash cipher - mirror the alphabet',
+      hint3: 'Replace each letter with its opposite (A→Z, B→Y, C→X, etc.)'
     }
-  ];
+  };
   
-  // Use date-based selection for consistency
-  const dateHash = hashDateString(dateStr);
-  const puzzleIndex = dateHash % fallbackPool.length;
-  
-  return fallbackPool[puzzleIndex];
-}
-
-/**
- * Emergency puzzle when all else fails
- */
-function getEmergencyPuzzle(dateStr) {
-  return {
-    cipher_type: "caesar_3",
-    p1_answer: "SYSTEM",
-    p1_encrypted_word: "VBVWHP",
-    p1_hint1: "This cipher method was used by Julius Caesar",
-    p1_hint2: "This is a Caesar cipher",
-    p1_hint3: "3",
-    p2_question: "What do you call an organized set of components working together?",
-    p2_hint1: "Can be biological, mechanical, or software-based",
-    p2_hint2: "Has inputs, processes, and outputs",
-    p2_hint3: "This puzzle is part of one",
-    p2_answer: "SYSTEM",
-    p2_alt_answers: "SYSTEM,FRAMEWORK,STRUCTURE",
-    p3_answer: "VBVWHP",
-    p3_hint: "Use the same 3-position forward shift",
-    category: "general",
-    emergency: true
+  return hintTemplates[cipherType] || {
+    hint1: 'This is a substitution cipher',
+    hint2: 'Each letter is replaced with another letter',
+    hint3: 'Follow the cipher pattern to decode'
   };
 }
 
 // ================================================
-// BALANCED CONTENT SELECTION
+// UTILITY FUNCTIONS
 // ================================================
 
 /**
- * Gets balanced category based on date to ensure variety
+ * Simple event logging function
  */
-function getBalancedCategory(dateStr) {
-  const dateHash = hashDateString(dateStr);
-  return CATEGORIES[dateHash % CATEGORIES.length];
+function logEvent(level, eventType, message) {
+  const timestamp = new Date().toISOString();
+  console.log(`[${timestamp}] ${level}: ${eventType} - ${message}`);
+  
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const systemLog = ss.getSheetByName('System_Log');
+    
+    if (systemLog) {
+      systemLog.appendRow([timestamp, level, eventType, message]);
+    }
+  } catch (error) {
+    console.error('Failed to write to System_Log:', error);
+  }
 }
 
 /**
- * Gets balanced cipher based on date to ensure variety
+ * Updates Current_Puzzle tab for Landbot integration
  */
-function getBalancedCipher(dateStr) {
-  const dateHash = hashDateString(dateStr);
-  return CIPHER_TYPES[dateHash % CIPHER_TYPES.length];
+function updateCurrentPuzzleTab(puzzleData) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const currentSheet = ss.getSheetByName('Current_Puzzle');
+  
+  if (!currentSheet) {
+    logEvent('WARNING', 'current_puzzle_sheet_missing', 'Current_Puzzle sheet not found');
+    return;
+  }
+  
+  // Clear existing data and add new puzzle to row 2
+  currentSheet.clear();
+  
+  // Add headers
+  const headers = [
+    'cipher_type', 'p1_answer', 'p1_encrypted_word', 'p1_hint1', 'p1_hint2', 'p1_hint3',
+    'p2_question', 'p2_hint1', 'p2_hint2', 'p2_hint3', 'p2_answer', 'p2_alt_answers',
+    'p3_answer', 'p3_hint', 'category'
+  ];
+  currentSheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+  
+  // Add puzzle data to row 2
+  const puzzleRow = [
+    puzzleData.cipher_type, puzzleData.p1_answer, puzzleData.p1_encrypted_word,
+    puzzleData.p1_hint1, puzzleData.p1_hint2, puzzleData.p1_hint3,
+    puzzleData.p2_question, puzzleData.p2_hint1, puzzleData.p2_hint2, puzzleData.p2_hint3,
+    puzzleData.p2_answer, puzzleData.p2_alt_answers, puzzleData.p3_answer, puzzleData.p3_hint,
+    puzzleData.category || 'Technology'
+  ];
+  currentSheet.getRange(2, 1, 1, puzzleRow.length).setValues([puzzleRow]);
+  
+  logEvent('INFO', 'current_puzzle_updated', 'Current_Puzzle tab updated successfully');
 }
 
 /**
- * Creates a simple hash from date string for deterministic selection
+ * Gets recent answers for uniqueness checking - SIMPLIFIED VERSION
+ */
+function getRecentAnswers(days = 7) {
+  const excludedAnswers = new Set();
+  
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const puzzleSheet = ss.getSheetByName('Daily_Puzzles');
+    
+    if (!puzzleSheet) {
+      return excludedAnswers;
+    }
+    
+    const data = puzzleSheet.getDataRange().getValues();
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - days);
+    
+    for (let i = 1; i < data.length; i++) { // Skip header row
+      const dateStr = data[i][0];
+      const rowDate = new Date(dateStr);
+      
+      if (rowDate >= cutoffDate) {
+        const p1Answer = data[i][2]; // Column C
+        const p2Answer = data[i][11]; // Column L
+        
+        if (p1Answer) excludedAnswers.add(p1Answer.toString().toUpperCase());
+        if (p2Answer) excludedAnswers.add(p2Answer.toString().toUpperCase());
+      }
+    }
+  } catch (error) {
+    logEvent('WARNING', 'recent_answers_error', `Error getting recent answers: ${error.toString()}`);
+  }
+  
+  return excludedAnswers;
+}
+
+/**
+ * Creates exclusion text for prompts
+ */
+function createExclusionText(excludedAnswers) {
+  if (!excludedAnswers || excludedAnswers.size === 0) {
+    return '';
+  }
+  
+  const recentList = Array.from(excludedAnswers).slice(0, 5).join(', ');
+  return `\n\nAVOID these recent answers: ${recentList}`;
+}
+
+/**
+ * Gets truly random category for variety (no date-based determinism)
+ */
+function getRandomCategory() {
+  const randomIndex = Math.floor(Math.random() * CATEGORIES.length);
+  const selectedCategory = CATEGORIES[randomIndex];
+  logEvent('DEBUG', 'category_selected', `Randomly selected category: ${selectedCategory} (index ${randomIndex})`);
+  return selectedCategory;
+}
+
+/**
+ * Gets random cipher type for true unpredictability
+ */
+function getRandomCipher() {
+  const randomIndex = Math.floor(Math.random() * CIPHER_TYPES.length);
+  return CIPHER_TYPES[randomIndex];
+}
+
+/**
+ * Gets random difficulty level (2-3 as requested)
+ */
+function getRandomDifficulty() {
+  const difficulties = [2, 3];
+  const randomIndex = Math.floor(Math.random() * difficulties.length);
+  const selectedDifficulty = difficulties[randomIndex];
+  logEvent('DEBUG', 'difficulty_selected', `Randomly selected difficulty: ${selectedDifficulty} (${DIFFICULTY_LEVELS[selectedDifficulty].description})`);
+  return selectedDifficulty;
+}
+
+/**
+ * Simple hash function for date strings
  */
 function hashDateString(dateStr) {
   let hash = 0;
@@ -1169,191 +828,36 @@ function hashDateString(dateStr) {
   return Math.abs(hash);
 }
 
-// ================================================
-// PRODUCTION-GRADE LOGGING
-// ================================================
-
 /**
- * Logs structured events for monitoring and debugging
- */
-function logStructuredEvent(level, eventType, puzzleDate, message, metadata = {}) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const systemLog = ss.getSheetByName('System_Log');
-  
-  if (!systemLog) {
-    console.error('System_Log sheet not found');
-    return;
-  }
-  
-  const timestamp = new Date();
-  const logEntry = {
-    timestamp: timestamp.toISOString(),
-    level: level,
-    event_type: eventType,
-    puzzle_date: puzzleDate || 'N/A',
-    message: message,
-    metadata: JSON.stringify(metadata),
-    system_metrics: JSON.stringify(SYSTEM_METRICS)
-  };
-  
-  try {
-    const newRow = systemLog.getLastRow() + 1;
-    systemLog.getRange(newRow, 1, 1, 7).setValues([[
-      timestamp,                    // A: timestamp
-      eventType,                   // B: event_type
-      puzzleDate || 'N/A',         // C: puzzle_date
-      level,                       // D: status
-      message,                     // E: details
-      JSON.stringify(metadata),    // F: metadata
-      0                           // G: retry_count (preserved for compatibility)
-    ]]);
-    
-    // Also log to console with structured format
-    console.log(`[${level}] ${eventType}: ${message}`, metadata);
-    
-  } catch (error) {
-    console.error('Failed to write to System_Log:', error);
-    console.log(`[${level}] ${eventType}: ${message}`, metadata);
-  }
-}
-
-// ================================================
-// CURRENT PUZZLE TAB MANAGEMENT
-// ================================================
-
-/**
- * Updates the Current_Puzzle tab with today's puzzle for easy Landbot access
- */
-function updateCurrentPuzzleTab(puzzleData) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  let currentPuzzleSheet = ss.getSheetByName('Current_Puzzle');
-  
-  if (!currentPuzzleSheet) {
-    logStructuredEvent('INFO', 'creating_current_puzzle_tab', null, 'Current_Puzzle tab not found, creating it');
-    currentPuzzleSheet = ss.insertSheet('Current_Puzzle');
-    
-    // Add headers
-    currentPuzzleSheet.getRange(1, 1, 1, 15).setValues([[
-      'cipher_type', 'p1_answer', 'p1_encrypted_word', 'p1_hint1', 'p1_hint2', 'p1_hint3',
-      'p2_question', 'p2_hint1', 'p2_hint2', 'p2_hint3', 'p2_answer', 'p2_alt_answers',
-      'p3_answer', 'p3_hint', 'category'
-    ]]);
-  }
-  
-  // Update row 2 with current puzzle data (15 columns)
-  currentPuzzleSheet.getRange(2, 1, 1, 15).setValues([[
-    puzzleData.cipher_type,       // A: cipher_type
-    puzzleData.p1_answer,         // B: p1_answer
-    puzzleData.p1_encrypted_word, // C: p1_encrypted_word
-    puzzleData.p1_hint1,          // D: p1_hint1
-    puzzleData.p1_hint2,          // E: p1_hint2
-    puzzleData.p1_hint3,          // F: p1_hint3
-    puzzleData.p2_question,       // G: p2_question
-    puzzleData.p2_hint1,          // H: p2_hint1
-    puzzleData.p2_hint2,          // I: p2_hint2
-    puzzleData.p2_hint3,          // J: p2_hint3
-    puzzleData.p2_answer,         // K: p2_answer
-    puzzleData.p2_alt_answers,    // L: p2_alt_answers
-    puzzleData.p3_answer,         // M: p3_answer
-    puzzleData.p3_hint,           // N: p3_hint
-    puzzleData.category           // O: category
-  ]]);
-  
-  logStructuredEvent('INFO', 'current_puzzle_updated', null, 'Current_Puzzle tab updated for Landbot access', {
-    cipher_type: puzzleData.cipher_type,
-    category: puzzleData.category,
-    source: puzzleData.source
-  });
-}
-
-// ================================================
-// UTILITY FUNCTIONS
-// ================================================
-
-/**
- * Finds row number for a specific date in the puzzle sheet
+ * Finds row by date in sheet
  */
 function findRowByDate(sheet, date) {
   const data = sheet.getDataRange().getValues();
   
-  for (let i = 1; i < data.length; i++) { // Start at 1 to skip headers
-    if (data[i][0] === date || 
-        (data[i][0] instanceof Date && 
-         Utilities.formatDate(data[i][0], SpreadsheetApp.getActiveSpreadsheet().getSpreadsheetTimeZone(), 'yyyy-MM-dd') === date)) {
-      return i + 1; // Return 1-indexed row number
+  for (let i = 1; i < data.length; i++) { // Skip header row
+    if (data[i][0] && data[i][0].toString() === date) {
+      return i + 1; // Return 1-based row number
     }
   }
-  return -1;
-}
-
-/**
- * Generates anonymous session ID for tracking
- */
-function generateSessionId() {
-  return 'session_' + Utilities.getUuid().slice(0, 8);
-}
-
-/**
- * Updates usage count when puzzle is completed (called from Landbot)
- */
-function updateUsageCount(puzzleDate) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const puzzleSheet = ss.getSheetByName('Daily_Puzzles');
-  const usageLog = ss.getSheetByName('Usage_Log');
   
-  if (!puzzleSheet || !usageLog) {
-    logStructuredEvent('ERROR', 'usage_update_failed', puzzleDate, 'Required sheets not found for usage tracking');
-    return;
-  }
-  
-  // Find the row for the specified date
-  const data = puzzleSheet.getDataRange().getValues();
-  for (let i = 1; i < data.length; i++) { // Skip headers
-    const rowDate = data[i][0];
-    const dateStr = (rowDate instanceof Date) ? 
-      Utilities.formatDate(rowDate, ss.getSpreadsheetTimeZone(), 'yyyy-MM-dd') : 
-      rowDate;
-    
-    if (dateStr === puzzleDate) {
-      const currentCount = data[i][19] || 0; // Column T (usage_count)
-      puzzleSheet.getRange(i + 1, 20).setValue(currentCount + 1);
-      
-      // Log the usage
-      const newLogRow = usageLog.getLastRow() + 1;
-      usageLog.getRange(newLogRow, 1, 1, 10).setValues([[
-        new Date(),                    // A: log_date
-        puzzleDate,                   // B: puzzle_date
-        generateSessionId(),          // C: user_session_id
-        'completed',                  // D: completion_status
-        '',                          // E: hints_used_p1
-        '',                          // F: hints_used_p2
-        '',                          // G: hints_used_p3
-        '',                          // H: total_time_seconds
-        'landbot',                   // I: source
-        ''                           // J: user_agent
-      ]]);
-      
-      logStructuredEvent('INFO', 'usage_count_updated', puzzleDate, 'Usage count incremented', {
-        new_count: currentCount + 1,
-        row_number: i + 1
-      });
-      break;
-    }
-  }
+  return -1; // Not found
 }
 
 // ================================================
-// AUTOMATION SETUP
+// SETUP AND UTILITY FUNCTIONS
 // ================================================
 
 /**
  * Sets up daily trigger for automatic puzzle generation
- * Run this once after installing the script
  */
 function setupDailyTrigger() {
   // Delete existing triggers
   const triggers = ScriptApp.getProjectTriggers();
-  triggers.forEach(trigger => ScriptApp.deleteTrigger(trigger));
+  triggers.forEach(trigger => {
+    if (trigger.getHandlerFunction() === 'generateDailyPuzzleSequence') {
+      ScriptApp.deleteTrigger(trigger);
+    }
+  });
   
   // Create new daily trigger at 1 AM
   ScriptApp.newTrigger('generateDailyPuzzleSequence')
@@ -1362,60 +866,40 @@ function setupDailyTrigger() {
     .atHour(1)
     .create();
     
-  logStructuredEvent('INFO', 'daily_trigger_setup', null, 'Daily trigger configured successfully', {
-    trigger_time: '1 AM daily',
-    function_name: 'generateDailyPuzzleSequence'
-  });
-  
-  console.log('Daily trigger set up successfully. Puzzles will generate at 1 AM daily.');
+  logEvent('INFO', 'trigger_setup', 'Daily trigger created for 1 AM');
+  console.log('✅ Daily trigger set up successfully');
 }
 
-// ================================================
-// WEB APP API (for Landbot integration)
-// ================================================
-
 /**
- * Web app API endpoint for Landbot integration
- * Deploy as web app to get URL for Landbot
+ * Web app endpoint for Landbot integration
  */
 function doGet(e) {
-  const action = e.parameter.action;
-  
   try {
-    if (action === 'today') {
-      const puzzleData = getTodaysPuzzleSequence();
+    const action = e.parameter.action;
+    
+    if (action === 'get_puzzle') {
       return ContentService
-        .createTextOutput(JSON.stringify(puzzleData))
+        .createTextOutput(JSON.stringify(getTodaysPuzzleSequence()))
         .setMimeType(ContentService.MimeType.JSON);
     }
     
     if (action === 'update_usage') {
       const puzzleDate = e.parameter.date || Utilities.formatDate(new Date(), SpreadsheetApp.getActiveSpreadsheet().getSpreadsheetTimeZone(), 'yyyy-MM-dd');
       updateUsageCount(puzzleDate);
-      return ContentService.createTextOutput('Usage updated');
-    }
-    
-    if (action === 'metrics') {
       return ContentService
-        .createTextOutput(JSON.stringify(SYSTEM_METRICS))
+        .createTextOutput(JSON.stringify({ success: true }))
         .setMimeType(ContentService.MimeType.JSON);
     }
     
-    return ContentService.createTextOutput(JSON.stringify({
-      error: 'Invalid request',
-      valid_actions: ['today', 'update_usage', 'metrics']
-    }));
-    
+    return ContentService
+      .createTextOutput(JSON.stringify({ error: 'Invalid action' }))
+      .setMimeType(ContentService.MimeType.JSON);
+      
   } catch (error) {
-    logStructuredEvent('ERROR', 'web_app_error', null, 'Web app request failed', {
-      action: action,
-      error: error.toString()
-    });
-    
-    return ContentService.createTextOutput(JSON.stringify({
-      error: 'Internal server error',
-      message: error.toString()
-    }));
+    logEvent('ERROR', 'web_app_error', `Web app request failed: ${error.toString()}`);
+    return ContentService
+      .createTextOutput(JSON.stringify({ error: 'Internal server error' }))
+      .setMimeType(ContentService.MimeType.JSON);
   }
 }
 
@@ -1423,822 +907,197 @@ function doGet(e) {
  * Gets today's puzzle sequence for API access
  */
 function getTodaysPuzzleSequence() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const puzzleSheet = ss.getSheetByName('Daily_Puzzles');
-  const today = Utilities.formatDate(new Date(), ss.getSpreadsheetTimeZone(), 'yyyy-MM-dd');
-  
-  if (!puzzleSheet) {
-    logStructuredEvent('ERROR', 'get_today_puzzle_failed', today, 'Daily_Puzzles sheet not found');
-    return getEmergencyPuzzle(today);
-  }
-  
-  const data = puzzleSheet.getDataRange().getValues();
-  
-  for (let i = 1; i < data.length; i++) { // Skip headers
-    const rowDate = data[i][0];
-    const dateStr = (rowDate instanceof Date) ? 
-      Utilities.formatDate(rowDate, ss.getSpreadsheetTimeZone(), 'yyyy-MM-dd') : 
-      rowDate;
-    
-    if (dateStr === today) {
-      return {
-        cipher_type: data[i][1],
-        p1_answer: data[i][2],
-        p1_encrypted_word: data[i][3],
-        p1_hint1: data[i][4],
-        p1_hint2: data[i][5],
-        p1_hint3: data[i][6],
-        p2_question: data[i][7],
-        p2_hint1: data[i][8],
-        p2_hint2: data[i][9],
-        p2_hint3: data[i][10],
-        p2_answer: data[i][11],
-        p2_alt_answers: data[i][12],
-        p3_answer: data[i][13],
-        p3_hint: data[i][14],
-        category: data[i][15]
-      };
-    }
-  }
-  
-  // If no puzzle found for today, try to generate one
-  logStructuredEvent('WARNING', 'no_puzzle_for_today', today, 'No puzzle found for today, attempting generation');
+  const today = Utilities.formatDate(new Date(), SpreadsheetApp.getActiveSpreadsheet().getSpreadsheetTimeZone(), 'yyyy-MM-dd');
   
   try {
-    generateDailyPuzzleSequence();
-    // Try again after generation
-    const newData = puzzleSheet.getDataRange().getValues();
-    for (let i = 1; i < newData.length; i++) {
-      const rowDate = newData[i][0];
-      const dateStr = (rowDate instanceof Date) ? 
-        Utilities.formatDate(rowDate, ss.getSpreadsheetTimeZone(), 'yyyy-MM-dd') : 
-        rowDate;
-      
-      if (dateStr === today) {
-        return {
-          cipher_type: newData[i][1],
-          p1_answer: newData[i][2],
-          p1_encrypted_word: newData[i][3],
-          p1_hint1: newData[i][4],
-          p1_hint2: newData[i][5],
-          p1_hint3: newData[i][6],
-          p2_question: newData[i][7],
-          p2_hint1: newData[i][8],
-          p2_hint2: newData[i][9],
-          p2_hint3: newData[i][10],
-          p2_answer: newData[i][11],
-          p2_alt_answers: newData[i][12],
-          p3_answer: newData[i][13],
-          p3_hint: newData[i][14],
-          category: newData[i][15]
-        };
-      }
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const puzzleSheet = ss.getSheetByName('Daily_Puzzles');
+    
+    if (!puzzleSheet) {
+      logEvent('ERROR', 'get_today_puzzle_failed', 'Daily_Puzzles sheet not found');
+      return { error: 'Database not available' };
     }
+    
+    const rowIndex = findRowByDate(puzzleSheet, today);
+    if (rowIndex < 2) {
+      // No puzzle for today - generate one
+      logEvent('INFO', 'generating_missing_puzzle', `No puzzle found for ${today}, generating now`);
+      createInitialPuzzle();
+      
+      // Try to find it again
+      const newRowIndex = findRowByDate(puzzleSheet, today);
+      if (newRowIndex < 2) {
+        return { error: 'No puzzle available for today' };
+      }
+      
+      const data = puzzleSheet.getRange(newRowIndex, 1, 1, 18).getValues()[0];
+      return buildPuzzleResponse(data);
+    }
+    
+    const data = puzzleSheet.getRange(rowIndex, 1, 1, 18).getValues()[0];
+    return buildPuzzleResponse(data);
+    
   } catch (error) {
-    logStructuredEvent('ERROR', 'emergency_generation_failed', today, 'Emergency puzzle generation failed', {
-      error: error.toString()
-    });
+    logEvent('ERROR', 'get_puzzle_error', `Error getting today's puzzle: ${error.toString()}`);
+    return { error: 'Failed to retrieve puzzle' };
   }
-  
-  // Return emergency puzzle as last resort
-  return getEmergencyPuzzle(today);
 }
 
-// ================================================
-// SETUP AND INITIALIZATION
-// ================================================
+/**
+ * Helper function to build puzzle response
+ */
+function buildPuzzleResponse(data) {
+  return {
+    date: data[0],
+    cipher_type: data[1],
+    p1_answer: data[2],
+    p1_encrypted_word: data[3],
+    p1_hint1: data[4],
+    p1_hint2: data[5],
+    p1_hint3: data[6],
+    p2_question: data[7],
+    p2_hint1: data[8],
+    p2_hint2: data[9],
+    p2_hint3: data[10],
+    p2_answer: data[11],
+    p2_alt_answers: data[12],
+    p3_answer: data[13],
+    p3_hint: data[14]
+  };
+}
 
 /**
- * Creates initial puzzle for today to get started
- * Run this once after setting up the sheet structure
+ * Creates initial puzzle for today if none exists
  */
 function createInitialPuzzle() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const puzzleSheet = ss.getSheetByName('Daily_Puzzles');
-  const today = Utilities.formatDate(new Date(), ss.getSpreadsheetTimeZone(), 'yyyy-MM-dd');
+  const today = Utilities.formatDate(new Date(), SpreadsheetApp.getActiveSpreadsheet().getSpreadsheetTimeZone(), 'yyyy-MM-dd');
   
-  if (!puzzleSheet) {
-    logStructuredEvent('ERROR', 'initial_puzzle_failed', today, 'Daily_Puzzles sheet not found');
-    console.log('Daily_Puzzles sheet not found. Please create the sheet first.');
-    return;
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const puzzleSheet = ss.getSheetByName('Daily_Puzzles');
+    
+    if (!puzzleSheet) {
+      logEvent('ERROR', 'initial_puzzle_failed', 'Daily_Puzzles sheet not found');
+      return { success: false, error: 'Sheet not found' };
+    }
+    
+    // Generate puzzle for today
+    const puzzleData = generatePuzzleWithGemini(today);
+    
+    if (!puzzleData) {
+      logEvent('ERROR', 'initial_generation_failed', 'Failed to generate initial puzzle');
+      return { success: false, error: 'Generation failed' };
+    }
+    
+    // Add to sheet
+    const newRow = puzzleSheet.getLastRow() + 1;
+    puzzleSheet.getRange(newRow, 1, 1, 18).setValues([[
+      today, puzzleData.cipher_type, puzzleData.p1_answer, puzzleData.p1_encrypted_word,
+      puzzleData.p1_hint1, puzzleData.p1_hint2, puzzleData.p1_hint3,
+      puzzleData.p2_question, puzzleData.p2_hint1, puzzleData.p2_hint2, puzzleData.p2_hint3,
+      puzzleData.p2_answer, puzzleData.p2_alt_answers, puzzleData.p3_answer, puzzleData.p3_hint,
+      puzzleData.generation_category, puzzleData.generation_difficulty, puzzleData.generation_timestamp
+    ]]);
+    
+    // Update Current_Puzzle tab
+    updateCurrentPuzzleTab(puzzleData);
+    
+    logEvent('SUCCESS', 'initial_puzzle_created', `Initial puzzle created for ${today}`);
+    console.log(`✅ Initial puzzle created for ${today}`);
+    
+    return { success: true, puzzle: puzzleData };
+    
+  } catch (error) {
+    logEvent('ERROR', 'initial_puzzle_error', `Error creating initial puzzle: ${error.toString()}`);
+    return { success: false, error: error.toString() };
   }
-  
-  // Check if today's puzzle already exists
-  if (findRowByDate(puzzleSheet, today) > 1) {
-    logStructuredEvent('INFO', 'initial_puzzle_exists', today, 'Today\'s puzzle already exists');
-    console.log('Today\'s puzzle already exists');
-    return;
-  }
-  
-  // Use the fallback system to create initial puzzle
-  const initialPuzzle = getHardcodedFallbackPuzzle(today);
-  
-  puzzleSheet.getRange(2, 1, 1, 20).setValues([[
-    today, initialPuzzle.cipher_type, initialPuzzle.p1_answer, initialPuzzle.p1_encrypted_word, 
-    initialPuzzle.p1_hint1, initialPuzzle.p1_hint2, initialPuzzle.p1_hint3,
-    initialPuzzle.p2_question, initialPuzzle.p2_hint1, initialPuzzle.p2_hint2, initialPuzzle.p2_hint3, 
-    initialPuzzle.p2_answer, initialPuzzle.p2_alt_answers, initialPuzzle.p3_answer, initialPuzzle.p3_hint,
-    initialPuzzle.category, CIPHER_DIFFICULTY[initialPuzzle.cipher_type] || 2, "initial_setup", true, 0
-  ]]);
-  
-  // Also update Current_Puzzle tab
-  updateCurrentPuzzleTab(initialPuzzle);
-  
-  logStructuredEvent('SUCCESS', 'initial_puzzle_created', today, 'Initial puzzle created successfully', {
-    cipher_type: initialPuzzle.cipher_type,
-    category: initialPuzzle.category
-  });
-  
-  console.log('Initial puzzle created for ' + today);
 }
 
 /**
- * One-time setup function - run this after installing the script
- * Sets up API key, creates initial puzzle, and enables daily automation
+ * One-time setup function
  */
 function initialSetup() {
-  // Check if API key is set
   const apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
+  
   if (!apiKey) {
-    logStructuredEvent('ERROR', 'setup_failed', null, 'GEMINI_API_KEY not found', {
-      action_required: 'Set GEMINI_API_KEY in Project Settings → Script Properties'
-    });
-    console.log('Please set GEMINI_API_KEY in Script Properties first');
-    console.log('Go to Project Settings > Script Properties and add GEMINI_API_KEY');
-    return;
+    logEvent('ERROR', 'setup_failed', 'GEMINI_API_KEY not found');
+    console.log('❌ Please set GEMINI_API_KEY in Script Properties first');
+    return { success: false, error: 'API key not configured' };
   }
   
-  logStructuredEvent('INFO', 'setup_start', null, 'Starting initial system setup', {
-    api_key_present: true
-  });
+  console.log('🚀 Starting initial setup...');
   
   // Create initial puzzle
-  createInitialPuzzle();
+  const result = createInitialPuzzle();
+  if (!result.success) {
+    console.log('❌ Initial setup failed: ' + result.error);
+    return result;
+  }
   
   // Set up daily automation
   setupDailyTrigger();
   
-  logStructuredEvent('SUCCESS', 'setup_complete', null, 'System setup completed successfully', {
-    next_generation: 'Automatic at 1 AM daily',
-    system_ready: true
-  });
+  console.log('✅ Initial setup complete!');
+  console.log('✅ Daily automation enabled');
+  console.log('✅ Today\'s puzzle generated');
   
-  console.log('Setup complete! System ready for daily operation.');
-  console.log('Next puzzle will generate automatically at 1 AM tomorrow.');
+  return { success: true };
 }
 
 /**
- * Test function to validate cipher implementations
- * Run this to ensure all ciphers work correctly
+ * Updates usage count for a puzzle
  */
-function testCiphers() {
-  const testWord = "HELLO";
-  console.log(`Testing ciphers with word: ${testWord}`);
-  
-  const testResults = [];
-  
-  CIPHER_TYPES.forEach(cipherType => {
-    try {
-      const encrypted = applyCipher(testWord, cipherType);
-      console.log(`${cipherType}: ${testWord} → ${encrypted}`);
-      
-      // Test validation with DIFFERENT answers (P1 ≠ P2, P3 encrypts P2)
-      const testWord2 = "WORLD"; // Different from testWord
-      const encrypted2 = applyCipher(testWord2, cipherType);
-      const testPuzzle = {
-        cipher_type: cipherType,
-        p1_answer: testWord,
-        p1_encrypted_word: encrypted,
-        p2_answer: testWord2,
-        p3_answer: encrypted2
-      };
-      
-      const isValid = validateEncryptionLogic(testPuzzle);
-      console.log(`Validation: ${isValid ? 'PASS' : 'FAIL'}`);
-      
-      testResults.push({
-        cipher: cipherType,
-        input: testWord,
-        output: encrypted,
-        validation: isValid ? 'PASS' : 'FAIL'
-      });
-      
-    } catch (error) {
-      console.log(`${cipherType}: ERROR - ${error.toString()}`);
-      testResults.push({
-        cipher: cipherType,
-        input: testWord,
-        output: 'ERROR',
-        validation: 'FAIL',
-        error: error.toString()
-      });
-    }
-  });
-  
-  logStructuredEvent('INFO', 'cipher_test_complete', null, 'Cipher test completed', {
-    test_results: testResults,
-    total_ciphers: CIPHER_TYPES.length,
-    passed: testResults.filter(r => r.validation === 'PASS').length
-  });
-  
-  return testResults;
-}
-
-/**
- * Test function to validate the complete puzzle generation process
- */
-function testPuzzleGeneration() {
-  const testDate = Utilities.formatDate(new Date(), SpreadsheetApp.getActiveSpreadsheet().getSpreadsheetTimeZone(), 'yyyy-MM-dd');
-  
-  console.log('Testing complete puzzle generation process...');
-  
+function updateUsageCount(puzzleDate) {
   try {
-    const puzzleData = generatePuzzleWithFallbacks(testDate + '-test');
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const usageLog = ss.getSheetByName('Usage_Log');
     
-    const testResults = {
-      generation_successful: !!puzzleData,
-      structure_valid: validatePuzzleStructure(puzzleData),
-      encryption_valid: validateEncryptionLogic(puzzleData),
-      content_quality: validateContentQuality(puzzleData),
-      puzzle_data: puzzleData
-    };
+    if (usageLog) {
+      const timestamp = new Date().toISOString();
+      usageLog.appendRow([timestamp, puzzleDate, 'completion']);
+    }
     
-    logStructuredEvent('INFO', 'puzzle_generation_test', testDate, 'Puzzle generation test completed', testResults);
-    
-    console.log('Test Results:', testResults);
-    return testResults;
+    logEvent('INFO', 'usage_updated', `Usage recorded for ${puzzleDate}`);
     
   } catch (error) {
-    const errorResults = {
-      generation_successful: false,
-      error: error.toString(),
-      error_stack: error.stack
-    };
-    
-    logStructuredEvent('ERROR', 'puzzle_generation_test_failed', testDate, 'Puzzle generation test failed', errorResults);
-    
-    console.log('Test Failed:', errorResults);
-    return errorResults;
+    logEvent('ERROR', 'usage_update_failed', `Failed to update usage: ${error.toString()}`);
   }
 }
 
 /**
- * Resets system metrics (useful for monitoring)
+ * Manual function to refresh today's puzzle (for testing)
  */
-function resetSystemMetrics() {
-  SYSTEM_METRICS = {
-    gemini_attempts: 0,
-    gemini_successes: 0,
-    fallback_uses: 0,
-    validation_failures: 0,
-    last_reset: new Date()
-  };
+function refreshTodaysPuzzle() {
+  const today = Utilities.formatDate(new Date(), SpreadsheetApp.getActiveSpreadsheet().getSpreadsheetTimeZone(), 'yyyy-MM-dd');
   
-  logStructuredEvent('INFO', 'system_metrics_reset', null, 'System metrics reset', SYSTEM_METRICS);
-  console.log('System metrics reset');
-}
-
-/**
- * Gets current system status for monitoring
- */
-function getSystemStatus() {
-  const apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const today = Utilities.formatDate(new Date(), ss.getSpreadsheetTimeZone(), 'yyyy-MM-dd');
-  
-  const status = {
-    api_key_configured: !!apiKey,
-    sheets_accessible: {
-      daily_puzzles: !!ss.getSheetByName('Daily_Puzzles'),
-      current_puzzle: !!ss.getSheetByName('Current_Puzzle'),
-      usage_log: !!ss.getSheetByName('Usage_Log'),
-      system_log: !!ss.getSheetByName('System_Log'),
-      fallback_puzzles: !!ss.getSheetByName('Fallback_Puzzles')
-    },
-    todays_puzzle_exists: findRowByDate(ss.getSheetByName('Daily_Puzzles'), today) > 1,
-    system_metrics: SYSTEM_METRICS,
-    triggers_configured: ScriptApp.getProjectTriggers().length > 0,
-    last_check: new Date()
-  };
-  
-  logStructuredEvent('INFO', 'system_status_check', today, 'System status checked', status);
-  
-  return status;
-}
-
-// ================================================
-// VARIETY TESTING FUNCTIONS
-// ================================================
-
-/**
- * Tests puzzle generation with multiple different dates to verify variety
- * This is crucial because the system is deterministic per date
- */
-function testVarietyAcrossDates() {
-  console.log('🔄 Testing variety across multiple dates...');
-  
-  const testDates = [
-    '2025-01-01', '2025-01-02', '2025-01-03', '2025-01-04', '2025-01-05',
-    '2025-02-01', '2025-03-01', '2025-04-01', '2025-05-01', '2025-06-01'
-  ];
-  
-  const results = [];
-  const categoriesUsed = new Set();
-  const ciphersUsed = new Set();
-  const sourcesUsed = new Set();
-  
-  testDates.forEach((dateStr, index) => {
-    try {
-      console.log(`\n📅 Testing date ${index + 1}/10: ${dateStr}`);
-      
-      const puzzleData = generatePuzzleWithFallbacks(dateStr);
-      const category = getBalancedCategory(dateStr);
-      const cipher = getBalancedCipher(dateStr);
-      
-      categoriesUsed.add(puzzleData.category);
-      ciphersUsed.add(puzzleData.cipher_type);
-      sourcesUsed.add(puzzleData.source);
-      
-      results.push({
-        date: dateStr,
-        category: puzzleData.category,
-        cipher_type: puzzleData.cipher_type,
-        source: puzzleData.source,
-        p1_answer: puzzleData.p1_answer,
-        p2_answer: puzzleData.p2_answer,
-        predicted_category: category,
-        predicted_cipher: cipher,
-        category_match: puzzleData.category === category,
-        cipher_match: puzzleData.cipher_type === cipher
-      });
-      
-      console.log(`   📊 Result: ${puzzleData.source} | ${puzzleData.cipher_type} | ${puzzleData.category}`);
-      console.log(`   🧩 Puzzles: ${puzzleData.p1_answer} → ${puzzleData.p2_answer}`);
-      
-    } catch (error) {
-      console.log(`   ❌ ERROR for ${dateStr}: ${error.toString()}`);
-      results.push({
-        date: dateStr,
-        error: error.toString()
-      });
-    }
-  });
-  
-  // Analyze variety
-  const summary = {
-    total_dates_tested: testDates.length,
-    successful_generations: results.filter(r => !r.error).length,
-    unique_categories: categoriesUsed.size,
-    unique_ciphers: ciphersUsed.size,
-    unique_sources: sourcesUsed.size,
-    categories_used: Array.from(categoriesUsed),
-    ciphers_used: Array.from(ciphersUsed),
-    sources_used: Array.from(sourcesUsed),
-    category_distribution: {},
-    cipher_distribution: {},
-    source_distribution: {}
-  };
-  
-  // Calculate distributions
-  results.forEach(result => {
-    if (!result.error) {
-      summary.category_distribution[result.category] = (summary.category_distribution[result.category] || 0) + 1;
-      summary.cipher_distribution[result.cipher_type] = (summary.cipher_distribution[result.cipher_type] || 0) + 1;
-      summary.source_distribution[result.source] = (summary.source_distribution[result.source] || 0) + 1;
-    }
-  });
-  
-  console.log('\n📊 VARIETY ANALYSIS SUMMARY:');
-  console.log(`✅ Successful generations: ${summary.successful_generations}/${summary.total_dates_tested}`);
-  console.log(`🎯 Unique categories: ${summary.unique_categories}/${CATEGORIES.length} possible`);
-  console.log(`🔐 Unique ciphers: ${summary.unique_ciphers}/${CIPHER_TYPES.length} possible`);
-  console.log(`📦 Sources used: ${Array.from(sourcesUsed).join(', ')}`);
-  
-  console.log('\n📈 CATEGORY DISTRIBUTION:');
-  Object.entries(summary.category_distribution).forEach(([cat, count]) => {
-    console.log(`   ${cat}: ${count} times`);
-  });
-  
-  console.log('\n🔐 CIPHER DISTRIBUTION:');
-  Object.entries(summary.cipher_distribution).forEach(([cipher, count]) => {
-    console.log(`   ${cipher}: ${count} times`);
-  });
-  
-  logStructuredEvent('INFO', 'variety_test_complete', null, 'Multi-date variety test completed', summary);
-  
-  return { results, summary };
-}
-
-/**
- * Tests just the fallback system to verify variety in fallbacks
- */
-function testFallbackVariety() {
-  console.log('🔄 Testing fallback puzzle variety...');
-  
-  const testDates = [
-    '2025-01-01', '2025-01-02', '2025-01-03', '2025-01-04', '2025-01-05',
-    '2025-01-06', '2025-01-07', '2025-01-08', '2025-01-09', '2025-01-10'
-  ];
-  
-  const fallbackResults = [];
-  const categoriesUsed = new Set();
-  
-  testDates.forEach((dateStr, index) => {
-    try {
-      const hardcodedFallback = getHardcodedFallbackPuzzle(dateStr);
-      const dateHash = hashDateString(dateStr);
-      const puzzleIndex = dateHash % 6; // 6 fallback puzzles
-      
-      categoriesUsed.add(hardcodedFallback.category);
-      
-      fallbackResults.push({
-        date: dateStr,
-        puzzle_index: puzzleIndex,
-        category: hardcodedFallback.category,
-        cipher_type: hardcodedFallback.cipher_type,
-        p1_answer: hardcodedFallback.p1_answer,
-        p2_answer: hardcodedFallback.p2_answer,
-        date_hash: dateHash
-      });
-      
-      console.log(`${dateStr}: Index ${puzzleIndex} | ${hardcodedFallback.cipher_type} | ${hardcodedFallback.category} | ${hardcodedFallback.p1_answer}→${hardcodedFallback.p2_answer}`);
-      
-    } catch (error) {
-      console.log(`ERROR for ${dateStr}: ${error.toString()}`);
-    }
-  });
-  
-  console.log(`\n📊 Fallback variety: ${categoriesUsed.size} unique categories used`);
-  console.log(`📋 Categories: ${Array.from(categoriesUsed).join(', ')}`);
-  
-  return fallbackResults;
-}
-
-/**
- * Tests Gemini API directly with multiple dates (if API key is configured)
- */
-function testGeminiVariety() {
-  const apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
-  if (!apiKey) {
-    console.log('❌ GEMINI_API_KEY not configured - skipping Gemini API test');
-    return { skipped: true, reason: 'No API key' };
-  }
-  
-  console.log('🤖 Testing Gemini API variety...');
-  
-  const testDates = ['2025-01-15', '2025-02-15', '2025-03-15'];
-  const geminiResults = [];
-  
-  testDates.forEach(dateStr => {
-    try {
-      console.log(`\n📅 Testing Gemini for ${dateStr}...`);
-      const result = callGeminiWithRetries(dateStr);
-      
-      if (result) {
-        geminiResults.push({
-          date: dateStr,
-          success: true,
-          category: result.category,
-          cipher_type: result.cipher_type,
-          p1_answer: result.p1_answer,
-          p2_answer: result.p2_answer
-        });
-        console.log(`   ✅ SUCCESS: ${result.cipher_type} | ${result.category} | ${result.p1_answer}→${result.p2_answer}`);
-      } else {
-        geminiResults.push({
-          date: dateStr,
-          success: false,
-          reason: 'API returned null'
-        });
-        console.log(`   ❌ FAILED: API returned null`);
-      }
-    } catch (error) {
-      geminiResults.push({
-        date: dateStr,
-        success: false,
-        error: error.toString()
-      });
-      console.log(`   ❌ ERROR: ${error.toString()}`);
-    }
-  });
-  
-  const successCount = geminiResults.filter(r => r.success).length;
-  console.log(`\n📊 Gemini API Results: ${successCount}/${testDates.length} successful`);
-  
-  return geminiResults;
-}
-
-/**
- * Shows which fallback layer would be used for different scenarios
- */
-function debugFallbackLayers() {
-  console.log('🔍 Debugging fallback layer selection...');
-  
-  const testDate = '2025-07-20';
-  
-  console.log(`\n📅 Testing fallback layers for ${testDate}:`);
-  
-  // Test each layer individually
-  console.log('\n1️⃣ LAYER 1: Gemini API');
   try {
-    SYSTEM_METRICS.gemini_attempts++;
-    const geminiResult = callGeminiWithRetries(testDate);
-    if (geminiResult) {
-      console.log('   ✅ Gemini API would succeed');
-      console.log(`   📊 Result: ${geminiResult.cipher_type} | ${geminiResult.category}`);
+    console.log(`🔄 Refreshing puzzle for ${today}...`);
+    
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const puzzleSheet = ss.getSheetByName('Daily_Puzzles');
+    
+    if (!puzzleSheet) {
+      console.log('❌ Daily_Puzzles sheet not found');
+      return;
+    }
+    
+    // Remove existing puzzle for today if it exists
+    const existingRow = findRowByDate(puzzleSheet, today);
+    if (existingRow > 1) {
+      puzzleSheet.deleteRow(existingRow);
+      console.log(`🗑️ Removed existing puzzle from row ${existingRow}`);
+    }
+    
+    // Generate new puzzle
+    const result = createInitialPuzzle();
+    if (result.success) {
+      console.log(`✅ New puzzle generated for ${today}`);
     } else {
-      console.log('   ❌ Gemini API would fail - moving to layer 2');
-    }
-  } catch (error) {
-    console.log(`   ❌ Gemini API would fail: ${error.toString()}`);
-  }
-  
-  console.log('\n2️⃣ LAYER 2: Fallback_Puzzles Sheet');
-  try {
-    const sheetFallback = getSheetFallbackPuzzle(testDate);
-    if (sheetFallback) {
-      console.log('   ✅ Sheet fallback would succeed');
-      console.log(`   📊 Result: ${sheetFallback.cipher_type} | ${sheetFallback.category}`);
-    }
-  } catch (error) {
-    console.log(`   ❌ Sheet fallback would fail: ${error.toString()}`);
-  }
-  
-  console.log('\n3️⃣ LAYER 3: Hardcoded Fallback Pool');
-  try {
-    const hardcodedFallback = getHardcodedFallbackPuzzle(testDate);
-    console.log('   ✅ Hardcoded fallback would succeed');
-    console.log(`   📊 Result: ${hardcodedFallback.cipher_type} | ${hardcodedFallback.category} | ${hardcodedFallback.p1_answer}→${hardcodedFallback.p2_answer}`);
-    
-    const dateHash = hashDateString(testDate);
-    const puzzleIndex = dateHash % 6;
-    console.log(`   🔢 Date hash: ${dateHash}, Puzzle index: ${puzzleIndex}`);
-  } catch (error) {
-    console.log(`   ❌ Hardcoded fallback would fail: ${error.toString()}`);
-  }
-  
-  console.log('\n4️⃣ LAYER 4: Emergency Puzzle');
-  try {
-    const emergencyPuzzle = getEmergencyPuzzle(testDate);
-    console.log('   ✅ Emergency puzzle always succeeds');
-    console.log(`   📊 Result: ${emergencyPuzzle.cipher_type} | ${emergencyPuzzle.category} | ${emergencyPuzzle.p1_answer}→${emergencyPuzzle.p2_answer}`);
-  } catch (error) {
-    console.log(`   ❌ Emergency puzzle failed: ${error.toString()}`);
-  }
-  
-  // Show what the actual generation would use
-  console.log(`\n🎯 ACTUAL GENERATION TEST for ${testDate}:`);
-  try {
-    const actualResult = generatePuzzleWithFallbacks(testDate);
-    console.log(`   📊 Actual result: ${actualResult.source} | ${actualResult.cipher_type} | ${actualResult.category} | ${actualResult.p1_answer}→${actualResult.p2_answer}`);
-  } catch (error) {
-    console.log(`   ❌ Actual generation failed: ${error.toString()}`);
-  }
-}
-
-// ================================================
-// ENHANCED DEBUGGING HELPER FUNCTIONS
-// ================================================
-
-/**
- * Extracts word boundaries and analyzes potential truncation issues
- */
-function extractWordBoundaries(text) {
-  try {
-    const words = text.match(/\b[A-Z]{5,}\b/g) || [];
-    const analysis = {
-      total_words_found: words.length,
-      words_found: words.slice(0, 10), // First 10 words to avoid huge logs
-      potential_truncation: []
-    };
-    
-    // Check for common truncation patterns
-    const commonPrefixes = ['BLOCKCH', 'QUANTU', 'NETWOR', 'DATABAS', 'PROGRA', 'TECHNO'];
-    commonPrefixes.forEach(prefix => {
-      if (text.toUpperCase().includes(prefix) && !text.toUpperCase().includes(prefix + 'AIN')) {
-        analysis.potential_truncation.push(prefix);
-      }
-    });
-    
-    return analysis;
-  } catch (error) {
-    return { error: error.toString() };
-  }
-}
-
-/**
- * Diagnostic function specifically for testing BLOCKCHAIN scenarios
- */
-function debugGeminiResponse() {
-  console.log('🔍 DEBUG: Testing Gemini API response for BLOCKCHAIN scenarios...');
-  
-  const testDate = Utilities.formatDate(new Date(), SpreadsheetApp.getActiveSpreadsheet().getSpreadsheetTimeZone(), 'yyyy-MM-dd') + '-debug';
-  
-  try {
-    // Test with advanced prompt
-    console.log('📝 Testing with advanced prompt...');
-    const prompt = createAdvancedPrompt(testDate);
-    
-    logStructuredEvent('DEBUG', 'blockchain_test_start', testDate, 'Starting BLOCKCHAIN debug test', {
-      test_type: 'advanced_prompt',
-      prompt_length: prompt.length,
-      prompt_contains_blockchain: prompt.toUpperCase().includes('BLOCKCHAIN')
-    });
-    
-    const result = callGeminiWithRetries(testDate);
-    
-    if (result) {
-      console.log('✅ Test successful!');
-      console.log(`📊 P1 Answer: ${result.p1_answer} (Length: ${result.p1_answer?.length})`);
-      console.log(`📊 P2 Answer: ${result.p2_answer} (Length: ${result.p2_answer?.length})`);
-      
-      logStructuredEvent('SUCCESS', 'blockchain_test_complete', testDate, 'BLOCKCHAIN debug test completed', {
-        p1_answer: result.p1_answer,
-        p1_length: result.p1_answer?.length,
-        p2_answer: result.p2_answer,
-        p2_length: result.p2_answer?.length,
-        contains_blockchain: result.p1_answer?.includes('BLOCKCHAIN') || result.p2_answer?.includes('BLOCKCHAIN'),
-        contains_blockch: result.p1_answer?.includes('BLOCKCH') || result.p2_answer?.includes('BLOCKCH')
-      });
-    } else {
-      console.log('❌ Test failed - no result returned');
-      logStructuredEvent('ERROR', 'blockchain_test_failed', testDate, 'BLOCKCHAIN debug test failed - no result');
+      console.log(`❌ Failed to generate new puzzle: ${result.error}`);
     }
     
   } catch (error) {
-    console.log(`❌ Test error: ${error.toString()}`);
-    logStructuredEvent('ERROR', 'blockchain_test_error', testDate, 'BLOCKCHAIN debug test error', {
-      error: error.toString(),
-      error_stack: error.stack
-    });
+    console.log(`❌ Error refreshing puzzle: ${error.toString()}`);
+    logEvent('ERROR', 'puzzle_refresh_failed', `Manual puzzle refresh failed: ${error.toString()}`);
   }
-  
-  console.log('📋 Check the System_Log sheet for complete raw response data!');
-}
-
-/**
- * Test function to verify BLOCKCHAIN cipher processing works correctly
- */
-function testBlockchainCipher() {
-  console.log('🔐 Testing BLOCKCHAIN cipher processing...');
-  
-  const word = "BLOCKCHAIN";
-  const testResults = [];
-  
-  CIPHER_TYPES.forEach(cipherType => {
-    try {
-      const encrypted = applyCipher(word, cipherType);
-      console.log(`${cipherType}: ${word} → ${encrypted} (${word.length}→${encrypted.length})`);
-      
-      testResults.push({
-        cipher: cipherType,
-        input: word,
-        input_length: word.length,
-        output: encrypted,
-        output_length: encrypted.length,
-        length_preserved: word.length === encrypted.length,
-        status: 'SUCCESS'
-      });
-      
-    } catch (error) {
-      console.log(`${cipherType}: ERROR - ${error.toString()}`);
-      testResults.push({
-        cipher: cipherType,
-        input: word,
-        status: 'ERROR',
-        error: error.toString()
-      });
-    }
-  });
-  
-  logStructuredEvent('INFO', 'blockchain_cipher_test', null, 'BLOCKCHAIN cipher test completed', {
-    test_word: word,
-    test_results: testResults,
-    total_tests: CIPHER_TYPES.length,
-    successful_tests: testResults.filter(r => r.status === 'SUCCESS').length
-  });
-  
-  console.log('✅ BLOCKCHAIN cipher test completed. All ciphers should preserve length.');
-  return testResults;
-}
-
-/**
- * Test function to verify enhanced mainstream recognition validation
- */
-function testMainstreamRecognition() {
-  console.log('🎯 Testing enhanced mainstream recognition validation...');
-  
-  // Test cases
-  const testCases = [
-    // Should PASS (mainstream)
-    { term: 'GOOGLE', expected: true, category: 'SF Bay Area company' },
-    { term: 'APPLE', expected: true, category: 'SF Bay Area company' },
-    { term: 'TESLA', expected: true, category: 'SF Bay Area company' },
-    { term: 'NETFLIX', expected: true, category: 'SF Bay Area company' },
-    { term: 'AMAZON', expected: true, category: 'Mainstream brand' },
-    { term: 'DISNEY', expected: true, category: 'Mainstream brand' },
-    { term: 'SPOTIFY', expected: true, category: 'Mainstream brand' },
-    { term: 'INTERNET', expected: true, category: 'Common tech term' },
-    { term: 'COMPUTER', expected: true, category: 'Common tech term' },
-    { term: 'MUSIC', expected: true, category: 'General term' },
-    { term: 'NASA', expected: true, category: 'Common abbreviation' },
-    
-    // Should FAIL (too technical/obscure)
-    { term: 'LORA', expected: false, category: 'Technical jargon' },
-    { term: 'LORAWAN', expected: false, category: 'Technical jargon' },
-    { term: 'KUBERNETES', expected: false, category: 'Technical jargon' },
-    { term: 'ANSIBLE', expected: false, category: 'Technical jargon' },
-    { term: 'PYTORCH', expected: false, category: 'Technical jargon' },
-    { term: 'GRAFANA', expected: false, category: 'Technical jargon' },
-    { term: 'HADOOP', expected: false, category: 'Technical jargon' },
-    { term: 'REDIS', expected: false, category: 'Technical jargon' },
-    { term: 'API', expected: false, category: 'Technical abbreviation' },
-    { term: 'SDK', expected: false, category: 'Technical abbreviation' }
-  ];
-  
-  const results = [];
-  let passed = 0;
-  let failed = 0;
-  
-  testCases.forEach(testCase => {
-    try {
-      const result = isMainstreamRecognizable(testCase.term);
-      const success = result === testCase.expected;
-      
-      if (success) {
-        passed++;
-        console.log(`✅ ${testCase.term}: ${result} (${testCase.category}) - CORRECT`);
-      } else {
-        failed++;
-        console.log(`❌ ${testCase.term}: ${result} (expected ${testCase.expected}) (${testCase.category}) - WRONG`);
-      }
-      
-      results.push({
-        term: testCase.term,
-        expected: testCase.expected,
-        actual: result,
-        success: success,
-        category: testCase.category
-      });
-      
-    } catch (error) {
-      failed++;
-      console.log(`❌ ${testCase.term}: ERROR - ${error.toString()}`);
-      results.push({
-        term: testCase.term,
-        expected: testCase.expected,
-        actual: 'ERROR',
-        success: false,
-        error: error.toString()
-      });
-    }
-  });
-  
-  console.log(`\n📊 Test Results: ${passed}/${testCases.length} passed (${failed} failed)`);
-  
-  logStructuredEvent('INFO', 'mainstream_recognition_test', null, 'Mainstream recognition validation test completed', {
-    total_tests: testCases.length,
-    passed: passed,
-    failed: failed,
-    success_rate: (passed / testCases.length * 100).toFixed(1) + '%',
-    results: results
-  });
-  
-  return results;
-}
-
-/**
- * Test enhanced prompts to see what kind of content they would generate
- */
-function testEnhancedPrompts() {
-  console.log('🔄 Testing enhanced prompts for mainstream content generation...');
-  
-  const testDate = '2025-07-21-test';
-  
-  console.log('\n📝 Testing Advanced Prompt:');
-  const advancedPrompt = createAdvancedPrompt(testDate);
-  console.log('Contains "MAINSTREAM":', advancedPrompt.includes('MAINSTREAM'));
-  console.log('Contains "SF Bay Area":', advancedPrompt.includes('SF Bay Area'));
-  console.log('Contains "GOOGLE, APPLE, TESLA":', advancedPrompt.includes('GOOGLE, APPLE, TESLA'));
-  console.log('Contains "LORA" in bad examples:', advancedPrompt.includes('LORA'));
-  
-  console.log('\n📝 Testing Simple Prompt:');
-  const simplePrompt = createSimplePrompt(testDate);
-  console.log('Contains "MAINSTREAM":', simplePrompt.includes('MAINSTREAM'));
-  console.log('Contains "regular people":', simplePrompt.includes('regular people'));
-  
-  console.log('\n📝 Testing Basic Prompt:');
-  const basicPrompt = createBasicPrompt(testDate);
-  console.log('Contains "MAINSTREAM RECOGNIZABLE":', basicPrompt.includes('MAINSTREAM RECOGNIZABLE'));
-  console.log('Contains "NO technical jargon":', basicPrompt.includes('NO technical jargon'));
-  
-  logStructuredEvent('INFO', 'enhanced_prompts_test', testDate, 'Enhanced prompts tested for mainstream content focus', {
-    advanced_mainstream_focus: advancedPrompt.includes('MAINSTREAM'),
-    simple_mainstream_focus: simplePrompt.includes('MAINSTREAM'),
-    basic_mainstream_focus: basicPrompt.includes('MAINSTREAM'),
-    sf_bay_area_mentioned: advancedPrompt.includes('SF Bay Area'),
-    technical_jargon_rejected: basicPrompt.includes('NO technical jargon')
-  });
-  
-  console.log('✅ Enhanced prompts successfully configured for mainstream recognition!');
 }
