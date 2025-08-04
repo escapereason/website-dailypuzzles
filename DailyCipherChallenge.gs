@@ -41,12 +41,12 @@ const DIFFICULTY_LEVELS = {
   2: {
     rating: 2,
     description: "moderate difficulty - accessible but challenging",
-    guidance: "Use mainstream terms that most people know but require some thought"
+    guidance: "Use mainstream terms recognizable from popular science, tech news, or Discovery Channel - think RADIO, NEURAL, COSMOS level"
   },
   3: {
     rating: 3, 
     description: "medium difficulty - requires some knowledge",
-    guidance: "Use terms that educated adults would know but aren't everyday vocabulary"
+    guidance: "Use scientifically interesting terms that are broadly recognizable - think TED Talk level, avoid specialist jargon like PCR or CEREBELLUM"
   }
 };
 
@@ -277,7 +277,7 @@ function getCategoryGuidance(category) {
     'Space Exploration & Astronomy': {
       focus: 'celestial objects, space phenomena, spacecraft components, astronomical terms',
       example: {
-        p1_answer: 'NEBULA',
+        p1_answer: 'COSMOS',
         p2_question: 'What do you call the invisible force that keeps planets in orbit around stars?',
         p2_hint1: 'Newton discovered this fundamental force',
         p2_hint2: 'It gets weaker with distance but never disappears',
@@ -289,25 +289,25 @@ function getCategoryGuidance(category) {
     'Artificial Intelligence & Robotics': {
       focus: 'AI concepts, algorithms, machine learning terms, robotic components',
       example: {
-        p1_answer: 'NEURAL',
+        p1_answer: 'ROBOTIC',
         p2_question: 'What type of learning uses trial and error to maximize rewards?',
         p2_hint1: 'Used to train game-playing AI systems',
         p2_hint2: 'Learns through feedback and consequences',
         p2_hint3: 'Like training a pet with treats and corrections',
-        p2_answer: 'REINFORCEMENT',
-        p2_alt_answers: 'REINFORCEMENT,REINFORCEMENT LEARNING'
+        p2_answer: 'LEARNING',
+        p2_alt_answers: 'LEARNING,MACHINE LEARNING'
       }
     },
     'Cybersecurity & Digital Defense': {
       focus: 'encryption methods, security concepts, hacking terms, digital protection',
       example: {
         p1_answer: 'FIREWALL',
-        p2_question: 'What cryptographic method uses two different keys for encoding and decoding?',
-        p2_hint1: 'One key is public, one is private',
-        p2_hint2: 'Safer than using the same key for both operations',
-        p2_hint3: 'RSA is a famous example of this system',
-        p2_answer: 'ASYMMETRIC',
-        p2_alt_answers: 'ASYMMETRIC,PUBLIC KEY'
+        p2_question: 'What process scrambles data to protect it from unauthorized access?',
+        p2_hint1: 'Used to secure messages and files',
+        p2_hint2: 'Makes data unreadable without the key',
+        p2_hint3: 'Banks and websites use this for security',
+        p2_answer: 'ENCRYPTION',
+        p2_alt_answers: 'ENCRYPTION,ENCRYPTING'
       }
     },
     'Time Travel & Temporal Mechanics': {
@@ -338,36 +338,36 @@ function getCategoryGuidance(category) {
       focus: 'VR/AR technology, simulation concepts, immersive tech terms',
       example: {
         p1_answer: 'AVATAR',
-        p2_question: 'What describes computer graphics that look completely realistic?',
-        p2_hint1: 'Graphics so good they fool the eye',
-        p2_hint2: 'Used in high-end movies and games',
-        p2_hint3: 'Means lifelike computer imagery',
-        p2_answer: 'PHOTOREALISTIC',
-        p2_alt_answers: 'PHOTOREALISTIC,REALISTIC'
+        p2_question: 'What technology creates immersive 3D computer environments?',
+        p2_hint1: 'Uses special headsets and controllers',
+        p2_hint2: 'Makes you feel like you\'re inside a digital world',
+        p2_hint3: 'Popular for gaming and training simulations',
+        p2_answer: 'VIRTUAL',
+        p2_alt_answers: 'VIRTUAL,VIRTUAL REALITY'
       }
     },
     'Quantum Computing & Physics': {
       focus: 'quantum phenomena, physics principles, computing concepts',
       example: {
-        p1_answer: 'QUBIT',
-        p2_question: 'What quantum phenomenon allows particles to be in multiple states?',
-        p2_hint1: 'Schrödinger\'s cat demonstrates this concept',
-        p2_hint2: 'Particles exist in all possible states until measured',
-        p2_hint3: 'Key principle that makes quantum computing powerful',
-        p2_answer: 'SUPERPOSITION',
-        p2_alt_answers: 'SUPERPOSITION,QUANTUM SUPERPOSITION'
+        p1_answer: 'QUANTUM',
+        p2_question: 'What fundamental force holds atomic nuclei together?',
+        p2_hint1: 'Overcomes electrical repulsion between protons',
+        p2_hint2: 'One of the four fundamental forces of physics',
+        p2_hint3: 'Released in nuclear fusion and fission',
+        p2_answer: 'NUCLEAR',
+        p2_alt_answers: 'NUCLEAR,NUCLEAR FORCE'
       }
     },
     'Biotechnology & Genetic Engineering': {
       focus: 'genetic terms, biotechnology concepts, medical innovations',
       example: {
-        p1_answer: 'GENOME',
-        p2_question: 'What gene-editing technique uses molecular scissors?',
-        p2_hint1: 'Revolutionary tool for modifying DNA',
-        p2_hint2: 'Won the Nobel Prize in Chemistry',
-        p2_hint3: 'Acronym sounds like a breakfast cereal',
-        p2_answer: 'CRISPR',
-        p2_alt_answers: 'CRISPR,CRISPR CAS9'
+        p1_answer: 'GENETICS',
+        p2_question: 'What molecule carries genetic information in all living things?',
+        p2_hint1: 'Found in the nucleus of every cell',
+        p2_hint2: 'Has a famous double helix structure',
+        p2_hint3: 'Watson and Crick discovered its structure',
+        p2_answer: 'DNA',
+        p2_alt_answers: 'DNA,GENETIC CODE'
       }
     },
     'Post-Apocalyptic Survival': {
@@ -385,13 +385,13 @@ function getCategoryGuidance(category) {
     'Neural Networks & Brain Science': {
       focus: 'neuroscience terms, brain concepts, cognitive science',
       example: {
-        p1_answer: 'SYNAPSE',
-        p2_question: 'What brain chemical is associated with happiness and reward?',
-        p2_hint1: 'Released when you accomplish goals',
-        p2_hint2: 'Also involved in addiction pathways',
-        p2_hint3: 'Parkinson\'s disease affects this neurotransmitter',
-        p2_answer: 'DOPAMINE',
-        p2_alt_answers: 'DOPAMINE,DOPAMINE NEUROTRANSMITTER'
+        p1_answer: 'NEURAL',
+        p2_question: 'What organ controls thinking, memory, and movement in humans?',
+        p2_hint1: 'Contains about 86 billion neurons',
+        p2_hint2: 'Protected by the skull',
+        p2_hint3: 'Controls all body functions and consciousness',
+        p2_answer: 'BRAIN',
+        p2_alt_answers: 'BRAIN,HUMAN BRAIN'
       }
     }
   };
@@ -448,11 +448,17 @@ STRICT REQUIREMENTS:
 4. All hints should be accessible to general public
 5. p1_answer ≠ p2_answer (MUST be different words)
 
+MAINSTREAM RECOGNITION REQUIREMENTS:
+- GOOD EXAMPLES (use these levels): RADIO, TACHYON, RED DWARF, NEURAL, NEURON, HAPTIC, COSMOS, DATASET, ROBOTIC, ENTROPY
+- BAD EXAMPLES (never use these levels): PCR, CEREBELLUM, STEREOPSIS, CHROMATOGRAPHY, MITOCHONDRIA
+- TARGET AUDIENCE: Discovery Channel viewers, TED Talk attendees, Popular Science readers
+- TEST: Would someone reading tech news or science magazines recognize this term?
+
 CRITICAL - ABSOLUTELY NO COMPANY NAMES:
 - FORBIDDEN: Company names, brand names, corporate entities
 - EXAMPLES TO AVOID: Google, Apple, Tesla, Meta, Amazon, Microsoft, etc.
 - REQUIRED: ${categoryGuidance.focus}
-- USE: Scientific concepts, phenomena, technical terms, natural objects
+- USE: Scientific concepts, phenomena, technical terms that are broadly recognizable
 
 CONTENT VARIETY REQUIREMENTS:
 - Generate content that is DIFFERENT from the provided example
@@ -529,6 +535,12 @@ function parseAndValidatePuzzle(response, dateStr) {
   const recentAnswers = getRecentAnswers(7);
   if (recentAnswers.has(contentData.p1_answer.toUpperCase()) || recentAnswers.has(contentData.p2_answer.toUpperCase())) {
     logEvent('WARNING', 'recent_duplicate_detected', `Generated answers "${contentData.p1_answer}" or "${contentData.p2_answer}" match recent puzzles`);
+    return null; // Force regeneration with different prompt
+  }
+  
+  // Validate mainstream recognition level
+  if (!isMainstreamRecognizable(contentData.p1_answer) || !isMainstreamRecognizable(contentData.p2_answer)) {
+    logEvent('WARNING', 'mainstream_recognition_failed', `Generated answers "${contentData.p1_answer}" or "${contentData.p2_answer}" are too technical for mainstream audience`);
     return null; // Force regeneration with different prompt
   }
   
@@ -735,6 +747,51 @@ function updateCurrentPuzzleTab(puzzleData) {
   currentSheet.getRange(2, 1, 1, puzzleRow.length).setValues([puzzleRow]);
   
   logEvent('INFO', 'current_puzzle_updated', 'Current_Puzzle tab updated successfully');
+}
+
+/**
+ * Validates if a term is mainstream recognizable based on user feedback
+ */
+function isMainstreamRecognizable(term) {
+  const upperTerm = term.toUpperCase();
+  
+  // GOOD EXAMPLES - User confirmed these are the right level
+  const goodWords = new Set([
+    'RADIO', 'TACHYON', 'RED DWARF', 'NEURAL', 'NEURON', 'HAPTIC', 'COSMOS', 
+    'DATASET', 'ROBOTIC', 'ENTROPY', 'QUANTUM', 'SOLAR', 'OXYGEN', 'CARBON',
+    'GRAVITY', 'ENCRYPTION', 'VIRTUAL', 'LEARNING', 'GENETICS', 'BRAIN',
+    'NUCLEAR', 'DNA', 'FIREWALL', 'AVATAR', 'PARADOX', 'SIGNAL', 'BUNKER',
+    'ALGORITHM', 'NETWORK', 'SYSTEM', 'DIGITAL', 'COMPUTER', 'INTERNET',
+    'ENERGY', 'PLANET', 'GALAXY', 'ORBIT', 'TELESCOPE', 'MICROSCOPE',
+    'MOLECULE', 'PROTEIN', 'VIRUS', 'BACTERIA', 'FUSION', 'PLASMA',
+    'LASER', 'HOLOGRAM', 'MATRIX', 'CODE', 'PASSWORD', 'DATABASE'
+  ]);
+  
+  // BAD EXAMPLES - User confirmed these are too technical
+  const badWords = new Set([
+    'PCR', 'CEREBELLUM', 'STEREOPSIS', 'CHROMATOGRAPHY', 'MITOCHONDRIA',
+    'ELECTROPHORESIS', 'CYTOCHROME', 'RIBOZYME', 'POLYPEPTIDE', 'NUCLEOTIDE',
+    'CHROMATID', 'CENTROMERE', 'NUCLEOLUS', 'LYSOSOME', 'GOLGI', 'ENDOPLASMIC',
+    'MITOSIS', 'MEIOSIS', 'PROPHASE', 'METAPHASE', 'ANAPHASE', 'TELOPHASE',
+    'KARYOTYPE', 'PHENOTYPE', 'GENOTYPE', 'ALLELE', 'HETEROZYGOUS', 'HOMOZYGOUS'
+  ]);
+  
+  // Check explicit lists first
+  if (goodWords.has(upperTerm)) return true;
+  if (badWords.has(upperTerm)) return false;
+  
+  // Length check - very long technical compounds are usually too specialized
+  if (upperTerm.length > 12) return false;
+  
+  // Common scientific prefixes that are usually accessible
+  const accessiblePrefixes = ['MICRO', 'NANO', 'MEGA', 'ULTRA', 'SUPER', 'MULTI', 'AUTO', 'BIO', 'GEO', 'ASTRO'];
+  const hasAccessiblePrefix = accessiblePrefixes.some(prefix => upperTerm.startsWith(prefix));
+  
+  // If it has an accessible prefix and reasonable length, it's probably okay
+  if (hasAccessiblePrefix && upperTerm.length <= 10) return true;
+  
+  // Default to cautious - if uncertain, it's probably too technical
+  return false;
 }
 
 /**
