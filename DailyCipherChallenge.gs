@@ -26,7 +26,7 @@
 // ================================================
 
 // Cipher types available for puzzle generation (focused on most reliable)
-const CIPHER_TYPES = ['rot13', 'caesar_3', 'caesar_5', 'caesar_7', 'atbash', 'caesar_neg3'];
+const CIPHER_TYPES = ['reverse', 'letter_number', 'consonant_vowel_split', 'caesar_3', 'caesar_5', 'caesar_7', 'atbash', 'caesar_neg3'];
 
 // Escape room immersive categories aligned with Reason Future Tech themes
 const CATEGORIES = [
@@ -50,12 +50,12 @@ const DIFFICULTY_LEVELS = {
   }
 };
 
-// Simplified API configuration
+// Updated API configuration for Gemini 2.5 Flash
 const API_CONFIG = {
-  MODEL: 'gemini-1.5-pro',  // Stable version, not latest
-  TEMPERATURE: 0.2,         // Low for consistent JSON output
-  TIMEOUT: 30000,           // 30 second timeout
-  MAX_TOKENS: 512           // Shorter, focused responses
+  MODEL: 'gemini-2.5-flash',  // Latest stable Flash model with thinking capabilities
+  TEMPERATURE: 0.2,          // Low for consistent JSON output
+  TIMEOUT: 30000,            // 30 second timeout
+  MAX_TOKENS: 2048           // Increased to account for thinking tokens + response
 };
 
 // ================================================
@@ -213,6 +213,12 @@ function callGeminiAPI(apiUrl, prompt) {
       temperature: API_CONFIG.TEMPERATURE,
       topP: 0.8,
       maxOutputTokens: API_CONFIG.MAX_TOKENS,
+      response_mime_type: "application/json"
+    },
+    systemInstruction: {
+      parts: [{
+        text: "You are a puzzle generator. Always respond with valid JSON only. Disable thinking to conserve tokens."
+      }]
     }
   };
   
@@ -245,16 +251,42 @@ function callGeminiAPI(apiUrl, prompt) {
   if (responseCode === 200) {
     try {
       const data = JSON.parse(rawResponseText);
-      if (data.candidates && data.candidates[0] && data.candidates[0].content) {
+
+      // Log usage metadata for debugging
+      if (data.usageMetadata) {
+        logEvent('DEBUG', 'gemini_token_usage', `Prompt: ${data.usageMetadata.promptTokenCount}, Total: ${data.usageMetadata.totalTokenCount}, Thoughts: ${data.usageMetadata.thoughtsTokenCount || 0}`);
+      }
+
+      // Check for truncation first
+      if (data.candidates && data.candidates[0] && data.candidates[0].finishReason === 'MAX_TOKENS') {
+        logEvent('WARNING', 'gemini_response_truncated', `Response truncated due to token limit. UsageMetadata: ${JSON.stringify(data.usageMetadata)}`);
+
+        // Try to extract partial content if available
+        if (data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts.length > 0) {
+          const partialText = data.candidates[0].content.parts[0].text || '';
+          if (partialText.length > 0) {
+            logEvent('INFO', 'gemini_partial_response', `Extracted partial response: ${partialText.length} chars`);
+            return partialText;
+          }
+        }
+
+        throw new Error(`Response truncated with no content - thinking tokens: ${data.usageMetadata?.thoughtsTokenCount || 0}, total: ${data.usageMetadata?.totalTokenCount || 0}`);
+      }
+
+      // Normal response processing
+      if (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts.length > 0) {
         const extractedText = data.candidates[0].content.parts[0].text;
+        if (!extractedText || extractedText.trim() === '') {
+          throw new Error('Empty text content in response');
+        }
         logEvent('SUCCESS', 'gemini_api_success', `Successfully extracted ${extractedText.length} chars from Gemini response`);
         return extractedText;
       } else {
         logEvent('ERROR', 'gemini_response_structure_invalid', `Invalid response structure: ${JSON.stringify(data)}`);
-        throw new Error('Invalid response structure from Gemini API');
+        throw new Error('Invalid response structure from Gemini API - missing content.parts');
       }
     } catch (parseError) {
-      logEvent('ERROR', 'gemini_response_parse_failed', `Failed to parse response: ${parseError.toString()}, Raw response: ${rawResponseText}`);
+      logEvent('ERROR', 'gemini_response_parse_failed', `Failed to parse response: ${parseError.toString()}, Raw response: ${rawResponseText.substring(0, 500)}...`);
       throw new Error(`Failed to parse Gemini response: ${parseError.toString()}`);
     }
   } else if (responseCode === 429) {
@@ -448,11 +480,21 @@ STRICT REQUIREMENTS:
 4. All hints should be accessible to general public
 5. p1_answer ≠ p2_answer (MUST be different words)
 
-MAINSTREAM RECOGNITION REQUIREMENTS:
-- GOOD EXAMPLES (use these levels): RADIO, TACHYON, RED DWARF, NEURAL, NEURON, HAPTIC, COSMOS, DATASET, ROBOTIC, ENTROPY
-- BAD EXAMPLES (never use these levels): PCR, CEREBELLUM, STEREOPSIS, CHROMATOGRAPHY, MITOCHONDRIA
-- TARGET AUDIENCE: Discovery Channel viewers, TED Talk attendees, Popular Science readers
-- TEST: Would someone reading tech news or science magazines recognize this term?
+WORD SELECTION GUIDANCE:
+- GOOD TECHNICAL TERMS: RADIO, NEURAL, COSMOS, ENTROPY, PHISHING, PHOTON, GRAVITY, DOPAMINE, RANSOMWARE, QUANTUM, ALGORITHM
+- AVOID ULTRA-SPECIALIST TERMS: PCR, CEREBELLUM, STEREOPSIS (require advanced degrees to understand)
+- TARGET LEVEL: Terms a tech-savvy professional would recognize from news, documentaries, Popular Science magazine
+- KEY DISTINCTION: "Broadly known technical terms" vs "Academic specialist jargon"
+
+BRAND-POSITIVE CONTENT REQUIREMENTS:
+- Focus on inspiring scientific concepts that spark curiosity about the future
+- PREFER categories: Space exploration, clean energy, digital innovation, physics phenomena
+- TARGET FEELING: "This makes me excited about learning and discovery"
+- AVOID biological processes, waste-related terms, or anything with unpleasant associations
+- FORBIDDEN EXAMPLES: FERMENT, BIOMASS, BACTERIA, MOLD, DECAY, DIGEST, WASTE, FUNGUS, ROT, SPOILAGE
+- PREFERRED EXAMPLES: SOLAR, QUANTUM, NEURAL, COSMOS, GRAVITY, DIGITAL, PHOTON, ENERGY, FUSION, LASER
+- BRAND TEST: "Would this word make someone feel positive about science and technology?"
+- Emphasize concepts associated with human achievement, exploration, and technological progress
 
 CRITICAL - ABSOLUTELY NO COMPANY NAMES:
 - FORBIDDEN: Company names, brand names, corporate entities
@@ -538,11 +580,6 @@ function parseAndValidatePuzzle(response, dateStr) {
     return null; // Force regeneration with different prompt
   }
   
-  // Validate mainstream recognition level
-  if (!isMainstreamRecognizable(contentData.p1_answer) || !isMainstreamRecognizable(contentData.p2_answer)) {
-    logEvent('WARNING', 'mainstream_recognition_failed', `Generated answers "${contentData.p1_answer}" or "${contentData.p2_answer}" are too technical for mainstream audience`);
-    return null; // Force regeneration with different prompt
-  }
   
   // NOW ADD ALL ENCRYPTION AUTOMATICALLY
   const cipherType = getRandomCipher();
@@ -575,7 +612,9 @@ function parseAndValidatePuzzle(response, dateStr) {
       p2_answer: contentData.p2_answer.toUpperCase(),
       p2_alt_answers: contentData.p2_alt_answers.toUpperCase(),
       p3_answer: p3_answer,
-      p3_hint: `Use the same ${cipherType} encryption to encrypt "${contentData.p2_answer}"`
+      p3_hint: cipherType === 'consonant_vowel_split' 
+        ? `Separate "${contentData.p2_answer}" into consonants and vowels like the first puzzle`
+        : `Use the same ${cipherType} encryption to encrypt "${contentData.p2_answer}"`
     };
     
     logEvent('SUCCESS', 'puzzle_complete', `Complete puzzle generated with ${cipherType} encryption`);
@@ -596,6 +635,54 @@ function applyCipher(word, cipherType) {
   }
   
   const upperWord = word.toUpperCase();
+  
+  // Handle special ciphers that don't use character-by-character substitution
+  if (cipherType === 'reverse') {
+    return upperWord.split('').reverse().join('');
+  }
+  
+  if (cipherType === 'letter_number') {
+    return upperWord.split('').map(char => {
+      if (char >= 'A' && char <= 'Z') {
+        return (char.charCodeAt(0) - 64).toString(); // A=1, B=2, etc.
+      }
+      return char;
+    }).join(' ');
+  }
+  
+  if (cipherType === 'consonant_vowel_split') {
+    const vowels = 'AEIOU';
+    let consonants = '';
+    let vowelChars = '';
+    
+    // Process each character
+    for (let i = 0; i < upperWord.length; i++) {
+      const char = upperWord[i];
+      if (char >= 'A' && char <= 'Z') {  // Only process letters
+        if (vowels.includes(char)) {
+          vowelChars += char;
+        } else {
+          consonants += char;
+        }
+      }
+      // Skip non-alphabetic characters entirely
+    }
+    
+    // Handle edge cases gracefully
+    if (consonants === '' && vowelChars === '') {
+      return upperWord; // No letters found - return original
+    }
+    if (consonants === '') {
+      return vowelChars; // No consonants - return vowels only
+    }
+    if (vowelChars === '') {
+      return consonants; // No vowels - return consonants only
+    }
+    
+    return consonants + ' ' + vowelChars;
+  }
+  
+  // Handle substitution ciphers (Caesar, Atbash)
   let result = '';
   
   for (let i = 0; i < upperWord.length; i++) {
@@ -605,9 +692,6 @@ function applyCipher(word, cipherType) {
       let newCharCode;
       
       switch (cipherType) {
-        case 'rot13':
-          newCharCode = (charCode + 13) % 26;
-          break;
         case 'caesar_3':
           newCharCode = (charCode + 3) % 26;
           break;
@@ -641,10 +725,20 @@ function applyCipher(word, cipherType) {
  */
 function generateCipherHints(cipherType) {
   const hintTemplates = {
-    'rot13': {
-      hint1: 'This cipher method replaces each letter with the letter 13 positions ahead in the alphabet',
-      hint2: 'ROT13 cipher - rotate each letter 13 positions',
-      hint3: 'Shift each letter exactly 13 positions forward (A→N, B→O, etc.)'
+    'reverse': {
+      hint1: 'This cipher simply reverses the order of all letters in the word',
+      hint2: 'Read the word backwards - last letter becomes first',
+      hint3: 'Just flip the entire word around (HELLO becomes OLLEH)'
+    },
+    'letter_number': {
+      hint1: 'Each letter has been replaced with its position number in the alphabet',
+      hint2: 'A=1, B=2, C=3, and so on through Z=26',
+      hint3: 'Convert each number back to its corresponding alphabet letter'
+    },
+    'consonant_vowel_split': {
+      hint1: 'The letters have been reorganized into two groups based on their type',
+      hint2: 'Vowels (A, E, I, O, U) and consonants have been separated',
+      hint3: 'Consonants come first, then vowels - combine them back in original order'
     },
     'caesar_3': {
       hint1: 'This cipher method was used by Julius Caesar in his military campaigns',
@@ -749,50 +843,6 @@ function updateCurrentPuzzleTab(puzzleData) {
   logEvent('INFO', 'current_puzzle_updated', 'Current_Puzzle tab updated successfully');
 }
 
-/**
- * Validates if a term is mainstream recognizable based on user feedback
- */
-function isMainstreamRecognizable(term) {
-  const upperTerm = term.toUpperCase();
-  
-  // GOOD EXAMPLES - User confirmed these are the right level
-  const goodWords = new Set([
-    'RADIO', 'TACHYON', 'RED DWARF', 'NEURAL', 'NEURON', 'HAPTIC', 'COSMOS', 
-    'DATASET', 'ROBOTIC', 'ENTROPY', 'QUANTUM', 'SOLAR', 'OXYGEN', 'CARBON',
-    'GRAVITY', 'ENCRYPTION', 'VIRTUAL', 'LEARNING', 'GENETICS', 'BRAIN',
-    'NUCLEAR', 'DNA', 'FIREWALL', 'AVATAR', 'PARADOX', 'SIGNAL', 'BUNKER',
-    'ALGORITHM', 'NETWORK', 'SYSTEM', 'DIGITAL', 'COMPUTER', 'INTERNET',
-    'ENERGY', 'PLANET', 'GALAXY', 'ORBIT', 'TELESCOPE', 'MICROSCOPE',
-    'MOLECULE', 'PROTEIN', 'VIRUS', 'BACTERIA', 'FUSION', 'PLASMA',
-    'LASER', 'HOLOGRAM', 'MATRIX', 'CODE', 'PASSWORD', 'DATABASE'
-  ]);
-  
-  // BAD EXAMPLES - User confirmed these are too technical
-  const badWords = new Set([
-    'PCR', 'CEREBELLUM', 'STEREOPSIS', 'CHROMATOGRAPHY', 'MITOCHONDRIA',
-    'ELECTROPHORESIS', 'CYTOCHROME', 'RIBOZYME', 'POLYPEPTIDE', 'NUCLEOTIDE',
-    'CHROMATID', 'CENTROMERE', 'NUCLEOLUS', 'LYSOSOME', 'GOLGI', 'ENDOPLASMIC',
-    'MITOSIS', 'MEIOSIS', 'PROPHASE', 'METAPHASE', 'ANAPHASE', 'TELOPHASE',
-    'KARYOTYPE', 'PHENOTYPE', 'GENOTYPE', 'ALLELE', 'HETEROZYGOUS', 'HOMOZYGOUS'
-  ]);
-  
-  // Check explicit lists first
-  if (goodWords.has(upperTerm)) return true;
-  if (badWords.has(upperTerm)) return false;
-  
-  // Length check - very long technical compounds are usually too specialized
-  if (upperTerm.length > 12) return false;
-  
-  // Common scientific prefixes that are usually accessible
-  const accessiblePrefixes = ['MICRO', 'NANO', 'MEGA', 'ULTRA', 'SUPER', 'MULTI', 'AUTO', 'BIO', 'GEO', 'ASTRO'];
-  const hasAccessiblePrefix = accessiblePrefixes.some(prefix => upperTerm.startsWith(prefix));
-  
-  // If it has an accessible prefix and reasonable length, it's probably okay
-  if (hasAccessiblePrefix && upperTerm.length <= 10) return true;
-  
-  // Default to cautious - if uncertain, it's probably too technical
-  return false;
-}
 
 /**
  * Gets recent answers for uniqueness checking - SIMPLIFIED VERSION
